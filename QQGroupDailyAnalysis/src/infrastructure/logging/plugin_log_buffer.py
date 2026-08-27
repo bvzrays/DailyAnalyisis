@@ -182,7 +182,7 @@ class PluginLogBuffer(logging.Handler):
 
             # 仅捕获群分析插件内部日志或带标识日志
             is_plugin_log = (
-                "astrbot_plugin_qq_group_daily_analysis" in logger_name
+                "qq_group_daily_analysis" in logger_name
                 or "daily_analysis" in logger_name
                 or "[群分析插件]" in msg
                 or hasattr(record, "trace_id")

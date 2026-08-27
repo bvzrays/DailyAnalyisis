@@ -42,7 +42,7 @@ class LLMAnalyzer(IAnalysisProvider):
         初始化LLM分析器
 
         Args:
-            context: AstrBot上下文对象
+            context: GsCore 分析上下文对象
             config_manager: 配置管理器
         """
         self.context = context
@@ -673,9 +673,9 @@ class LLMAnalyzer(IAnalysisProvider):
         try:
             import json
 
-            from astrbot.api.star import StarTools
+            from ....gscore_runtime import PluginPaths
 
-            debug_dir = StarTools.get_data_dir(PLUGIN_NAME) / "debug_data"
+            debug_dir = PluginPaths.get_data_dir(PLUGIN_NAME) / "debug_data"
             debug_dir.mkdir(parents=True, exist_ok=True)
 
             msg_file_path = debug_dir / f"{session_id}_messages.json"

@@ -1,6 +1,6 @@
 """
 群聊活跃度可视化模块
-参考 astrbot_plugin_github_analyzer 的实现方式
+生成群聊活跃度可视化图表。
 """
 
 from collections import defaultdict

@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sized
 from typing import Generic, TypeVar
 
+from .....gscore_runtime import PluginPaths
 from ....domain.models.data_models import TokenUsage
 from ....shared.constants import PLUGIN_NAME
 from ....utils.logger import logger
@@ -34,7 +35,7 @@ class BaseAnalyzer(ABC, Generic[TDataObject, TInputData]):
         初始化基础分析器
 
         Args:
-            context: AstrBot上下文对象
+            context: GsCore 分析上下文对象
             config_manager: 配置管理器
         """
         self.context = context
@@ -299,9 +300,7 @@ class BaseAnalyzer(ABC, Generic[TDataObject, TInputData]):
             session_id: 会话ID
         """
         try:
-            from astrbot.api.star import StarTools
-
-            data_path = StarTools.get_data_dir(PLUGIN_NAME) / "debug_data"
+            data_path = PluginPaths.get_data_dir(PLUGIN_NAME) / "debug_data"
 
             data_path.mkdir(parents=True, exist_ok=True)
 
@@ -564,7 +563,7 @@ class BaseAnalyzer(ABC, Generic[TDataObject, TInputData]):
         specific_id = self.config_manager.get_plugin_specific_persona_id()
         keep_original = self.config_manager.get_keep_original_persona()
 
-        # 获取 AstrBot 核心的人格管理器
+        # 获取 GsCore 分析上下文的人格管理器
         persona_mgr = getattr(self.context, "persona_manager", None)
         if persona_mgr is None:
             return None
@@ -604,32 +603,7 @@ class BaseAnalyzer(ABC, Generic[TDataObject, TInputData]):
         # 只有在未开启“强制人格”且开启了“继承设定”时生效
         if not persona_prompt and keep_original and umo:
             try:
-                # 2.1 尝试获取 SharedPreferences 中会话绑定的 Persona ID (通常是 /persona 命令设置的)
-                from astrbot.api import sp
-
-                session_service_config = await sp.get_async(
-                    scope="umo",
-                    scope_id=str(umo),
-                    key="session_service_config",
-                    default={},
-                )
-                persona_id = (
-                    session_service_config.get("persona_id")
-                    if session_service_config
-                    else None
-                )
-
-                if persona_id and persona_id != "[%None]":
-                    persona_obj = await persona_mgr.get_persona(persona_id)
-                    persona_prompt = (
-                        persona_obj.system_prompt
-                        if hasattr(persona_obj, "system_prompt")
-                        else None
-                    )
-                    if persona_prompt:
-                        logger.debug(f"继承到会话选定人格: {persona_id}")
-
-                # 2.2 若无会话绑定，尝试获取当前对话(Dialogue)级别的人格
+                # 2.1 尝试获取当前对话级别的人格
                 if not persona_prompt:
                     conv_mgr = getattr(self.context, "conversation_manager", None)
                     if conv_mgr:
@@ -656,7 +630,7 @@ class BaseAnalyzer(ABC, Generic[TDataObject, TInputData]):
                                         f"继承到对话(Dialogue)设定人格: {conv_obj.persona_id}"
                                     )
 
-                # 2.3 若仍无结果，尝试获取 UMO 设定的默认人格
+                # 2.2 若仍无结果，尝试获取 UMO 设定的默认人格
                 if not persona_prompt:
                     personality = await persona_mgr.get_default_persona_v3(umo)
                     if isinstance(personality, dict):

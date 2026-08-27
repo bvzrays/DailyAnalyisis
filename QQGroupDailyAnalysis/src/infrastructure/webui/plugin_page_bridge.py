@@ -1,7 +1,4 @@
-"""
-AstrBot 插件 Pages 后端 Web API 桥接服务
-为 React + Ant Design 5 控制台提供 REST 与 SSE 接口。
-"""
+"""GsCore 插件 WebUI 的 REST 与 SSE API 服务。"""
 
 from __future__ import annotations
 
@@ -13,36 +10,19 @@ import time
 from pathlib import Path
 from typing import Any
 
-try:
-    from astrbot.api.star import Context
-    from astrbot.api.web import (
-        error_response,
-        json_response,
-        request,
-        stream_response,
-    )
-except (ImportError, AttributeError):
-
-    class Context:  # type: ignore
-        pass
-
-    def json_response(data: Any, status_code: int = 200) -> Any:  # type: ignore
-        return {"status_code": status_code, "data": data}
-
-    def error_response(msg: str, status_code: int = 400) -> Any:  # type: ignore
-        return {"status_code": status_code, "message": msg}
-
-    request: Any = None  # type: ignore
-
-    def stream_response(gen: Any) -> Any:  # type: ignore
-        return gen
+from ....gscore_runtime import PluginContext
+from ....gscore_runtime.web import (
+    error_response,
+    json_response,
+    request,
+    stream_response,
+)
 
 
 from ...shared.constants import PLUGIN_NAME
 from ...shared.trace_context import TraceContext
 from ...utils.logger import logger
 from ..persistence.trace_sqlite_store import TraceSQLiteStore
-from ..platform.factory import PlatformAdapterFactory
 from .active_task_manager import ActiveTaskManager
 
 
@@ -51,7 +31,7 @@ class PluginPageWebUIBridge:
 
     def __init__(
         self,
-        context: Context,
+        context: PluginContext,
         trace_store: TraceSQLiteStore,
         active_task_manager: ActiveTaskManager,
         analysis_service: Any,
@@ -67,7 +47,7 @@ class PluginPageWebUIBridge:
         TraceContext.set_active_task_manager(self.active_task_manager)
 
     def register_routes(self) -> None:
-        """向 AstrBot 注册所有 Web API 端点"""
+        """向 GsCore 注册所有 Web API 端点。"""
         routes = [
             # 1. 活跃任务与控制
             (
@@ -141,7 +121,7 @@ class PluginPageWebUIBridge:
                 f"/{PLUGIN_NAME}/personas",
                 self.api_get_personas,
                 ["GET"],
-                "Get available AstrBot personas list",
+                "Get available analysis personas list",
             ),
             # 4. 历史产物
             (
@@ -610,7 +590,7 @@ class PluginPageWebUIBridge:
             return error_response(str(e), status_code=500)
 
     async def api_get_platforms(self) -> Any:
-        """获取当前 AstrBot 中已注册并就绪的所有聊天平台列表（基于 AstrBot 原生 PlatformMetadata）"""
+        """获取当前 GsCore 中已注册并就绪的聊天平台列表。"""
         try:
             platforms: list[dict[str, Any]] = []
             seen_ids = set()
@@ -622,7 +602,7 @@ class PluginPageWebUIBridge:
                 "discord": "Discord",
             }
 
-            # 1. 优先从 AstrBot 原生 platform_manager 获取标准元数据
+            # 1. 优先从上下文平台管理器获取标准元数据
             platform_manager = getattr(self.context, "platform_manager", None)
             if platform_manager and hasattr(platform_manager, "get_insts"):
                 insts = platform_manager.get_insts() or []
@@ -651,12 +631,7 @@ class PluginPageWebUIBridge:
                             )
                             or ""
                         )
-                        # 仅保留插件适配器工厂支持的聊天平台
-                        if (
-                            not p_id
-                            or p_id in seen_ids
-                            or not PlatformAdapterFactory.is_supported(p_type)
-                        ):
+                        if not p_id or p_id in seen_ids:
                             continue
 
                         meta_display = getattr(meta, "adapter_display_name", "")
@@ -712,7 +687,7 @@ class PluginPageWebUIBridge:
             return error_response(str(e), status_code=500)
 
     async def api_get_providers(self) -> Any:
-        """获取当前 AstrBot 中已就绪的所有 LLM Provider 列表"""
+        """获取当前 GsCore 中已就绪的所有 LLM Provider 列表。"""
         try:
             providers: list[dict[str, Any]] = []
             seen_ids = set()
@@ -757,7 +732,7 @@ class PluginPageWebUIBridge:
             return error_response(str(e), status_code=500)
 
     async def api_get_personas(self) -> Any:
-        """获取当前 AstrBot 中配置的所有人格 (Persona) 列表"""
+        """获取当前分析上下文中配置的人格列表。"""
         try:
             personas: list[dict[str, Any]] = []
             seen_ids = set()
@@ -1391,7 +1366,7 @@ class PluginPageWebUIBridge:
             if not cfg_mgr or not hasattr(cfg_mgr, "config"):
                 return error_response("配置管理器未初始化", status_code=500)
 
-            # 更新 AstrBotConfig 字典
+            # 更新插件配置字典
             for k, v in new_config.items():
                 cfg_mgr.config[k] = v
 

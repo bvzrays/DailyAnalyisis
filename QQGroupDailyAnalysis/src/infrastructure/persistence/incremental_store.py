@@ -1,7 +1,7 @@
 """
 增量分析批次持久化存储 — 滑动窗口架构
 
-基于 AstrBot 的 put_kv_data/get_kv_data 实现按批次独立存储，
+基于插件运行时的 put_kv_data/get_kv_data 实现按批次独立存储，
 支持按时间窗口查询批次、批次索引管理和过期批次清理。
 
 KV 键设计：
@@ -41,7 +41,7 @@ class IncrementalStore:
         初始化批次持久化仓储。
 
         Args:
-            star_instance: Star 插件实例，用于访问底层 KV 存储引擎
+            star_instance: 插件实例，用于访问底层 KV 存储引擎
         """
         self.plugin = star_instance
 

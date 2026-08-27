@@ -146,7 +146,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       );
     }
 
-    // 1. Provider 智能选择输入框 (支持选择已装配的 AstrBot Provider 或自由手输)
+    // 1. Provider 智能选择输入框（支持选择 GsCore Provider 或自由手输）
     if (isProviderField) {
       const currentVal =
         typeof value === "string"
@@ -192,7 +192,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       );
     }
 
-    // 2. Persona 人设智能选择输入框 (支持选择 AstrBot 内部已定义人设或手输)
+    // 2. Persona 人设智能选择输入框（支持选择已定义人设或手输）
     if (isPersonaField) {
       const currentVal =
         typeof value === "string"

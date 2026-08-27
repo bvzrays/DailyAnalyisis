@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class Usage:
+class LLMUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -19,4 +19,4 @@ class LLMResponse:
     is_chunk: bool = False
 
 
-__all__ = ["LLMResponse", "Usage"]
+__all__ = ["LLMResponse", "LLMUsage"]

@@ -5,8 +5,6 @@ from copy import deepcopy
 from pathlib import Path
 from collections.abc import Iterator
 
-from astrbot.api import AstrBotConfig
-from astrbot.api.star import StarTools
 from gsuid_core.logger import logger
 from gsuid_core.data_store import get_res_path
 from gsuid_core.utils.plugins_config.models import (
@@ -20,12 +18,14 @@ from gsuid_core.utils.plugins_config.models import (
 )
 from gsuid_core.utils.plugins_config.gs_config import StringConfig
 
+from .gscore_runtime import PluginPaths, PluginConfig
+
 PLUGIN_ROOT = Path(__file__).resolve().parent
 DATA_DIR = get_res_path() / "QQGroupDailyAnalysis"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_PATH = DATA_DIR / "config.json"
 GSCORE_CONFIG_PATH = DATA_DIR / "gscore_config.json"
-StarTools.set_data_dir(DATA_DIR)
+PluginPaths.set_data_dir(DATA_DIR)
 
 
 def _schema_default(item: object) -> object:
@@ -316,7 +316,7 @@ def _write_config(data: dict) -> None:
     _sync_gscore_from_config(data)
 
 
-def load_config() -> AstrBotConfig:
+def load_config() -> PluginConfig:
     config_exists = CONFIG_PATH.exists()
     config_mtime = CONFIG_PATH.stat().st_mtime_ns if config_exists else 0
     try:
@@ -330,7 +330,7 @@ def load_config() -> AstrBotConfig:
     else:
         _sync_gscore_from_config(merged)
     _write_config(merged)
-    return AstrBotConfig(merged, save_callback=_write_config)
+    return PluginConfig(merged, save_callback=_write_config)
 
 
 _migrate_legacy_gscore_config()

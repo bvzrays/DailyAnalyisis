@@ -1,7 +1,7 @@
 """
 历史记录管理器模块 - 基础设施持久化层
 负责存储和查询群聊分析报告的摘要信息
-使用 AstrBot 的 put_kv_data/get_kv_data 实现
+使用插件运行时的 put_kv_data/get_kv_data 实现
 """
 
 import datetime
@@ -15,7 +15,7 @@ class HistoryManager:
     核心组件：历史分析存档管理器
 
     该类负责将每日生成的群消息分析报告摘要持久化存储，并提供查询接口。
-    底层基于 AstrBot 提供的 KV 存储能力（put_kv_data/get_kv_data），
+    底层基于插件运行时的 KV 存储能力（put_kv_data/get_kv_data），
     确保即使在 Bot 重启后也能回溯历史数据。
     """
 
@@ -24,7 +24,7 @@ class HistoryManager:
         初始化历史记录管理器。
 
         Args:
-            star_instance (Any): Star 插件实例，用于访问底层持久化引擎
+            star_instance (Any): 插件实例，用于访问底层持久化引擎
         """
         self.plugin = star_instance
 

@@ -777,6 +777,7 @@
 
         .q-flex-container {
             display: flex;
+            width: 100%;
             gap: 15px;
             align-items: flex-start;
         }
@@ -817,7 +818,8 @@
         }
 
         .q-content-col {
-            flex: 1;
+            flex: 0 0 calc(100% - 85px);
+            width: calc(100% - 85px);
             display: flex;
             flex-direction: column;
             min-width: 0;
@@ -889,8 +891,8 @@
             box-shadow: 4px 4px 0 var(--color-blue);
             position: relative;
             z-index: 2;
-            width: fit-content;
-            /* Dynamic width */
+            width: 100%;
+            box-sizing: border-box;
             max-width: 100%;
         }
 
@@ -926,8 +928,8 @@
             padding: 10px 15px;
             font-size: 0.9rem;
             color: #666;
-            width: fit-content;
-            /* Fit content */
+            width: 100%;
+            box-sizing: border-box;
             max-width: 100%;
             margin-top: -5px;
             box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
@@ -1148,7 +1150,7 @@
                 </div>
                 <div class="footer-card-content">
                     <p>{{current_datetime}}</p>
-                    <p style="font-size: 0.85em; opacity: 0.7;">AstrBot 群分析总结插件</p>
+                    <p style="font-size: 0.85em; opacity: 0.7;">GsCore 群分析总结插件</p>
                 </div>
             </div>
 
@@ -1165,7 +1167,7 @@
                 <div class="footer-card-content">
                     <p
                         style="font-family: var(--font-body); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis;">
-                        SXP-Simon/astrbot_plugin_qq_group_daily_analysis</p>
+                        bvzrays/qq_group_daily_analysis</p>
                 </div>
             </div>
 
@@ -1191,5 +1193,3 @@
 </body>
 
 </html>
-
-

@@ -5,7 +5,10 @@ from contextvars import ContextVar
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-_current_request: ContextVar[Request | None] = ContextVar("qq_daily_request", default=None)
+_current_request: ContextVar[Request | None] = ContextVar(
+    "qq_daily_request",
+    default=None,
+)
 
 
 class _QueryProxy:
@@ -42,7 +45,12 @@ def stream_response(gen):
     return StreamingResponse(gen, media_type="text/event-stream")
 
 
-def register_route(path: str, handler, methods: list[str], description: str = "") -> None:
+def register_route(
+    path: str,
+    handler,
+    methods: list[str],
+    description: str = "",
+) -> None:
     from gsuid_core.webconsole.app_app import app
 
     normalized = path.replace("<trace_id>", "{trace_id}")
@@ -60,7 +68,13 @@ def register_route(path: str, handler, methods: list[str], description: str = ""
         finally:
             _current_request.reset(token)
 
-    app.add_api_route(route_path, endpoint, methods=methods, name=route_name, description=description)
+    app.add_api_route(
+        route_path,
+        endpoint,
+        methods=methods,
+        name=route_name,
+        description=description,
+    )
 
 
 __all__ = ["error_response", "json_response", "request", "stream_response"]

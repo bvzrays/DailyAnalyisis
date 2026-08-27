@@ -1,17 +1,7 @@
-from .adapters.discord_adapter import DiscordAdapter
-from .adapters.lark_adapter import LarkAdapter
-from .adapters.onebot_adapter import OneBotAdapter
-from .adapters.qq_official_adapter import QQOfficialAdapter
-from .adapters.telegram_adapter import TelegramAdapter
 from .base import PlatformAdapter
-from .factory import PlatformAdapterFactory
+from .gscore_adapter import GsCorePlatformAdapter
 
 __all__ = [
-    "PlatformAdapterFactory",
+    "GsCorePlatformAdapter",
     "PlatformAdapter",
-    "OneBotAdapter",
-    "LarkAdapter",
-    "QQOfficialAdapter",
-    "TelegramAdapter",
-    "DiscordAdapter",
 ]

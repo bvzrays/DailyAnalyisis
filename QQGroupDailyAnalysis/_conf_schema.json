@@ -28,7 +28,7 @@
                 "type": "int",
                 "description": "默认分析天数",
                 "default": 1,
-                "hint": "默认分析最近几天的消息，增量分析也基于此数据保存分析情况。QQ 官方 API 无历史拉取接口，只能分析插件启用后实时缓存到 AstrBot 本地库的消息。"
+                "hint": "默认分析最近几天的消息，增量分析也基于此数据保存分析情况。无历史拉取能力的平台只能分析插件启用后由 GsCore 实时归档的消息。"
             },
             "max_messages": {
                 "type": "int",
@@ -89,7 +89,7 @@
                     "format"
                 ],
                 "default": "scrapbook",
-                "hint": "分析报告使用的HTML模板名称，QQ 端可以使用 `/设置模板` 查看使用指南，使用`/查看模板` 命令查看模板样式效果。其他平台不支持合并转发，可以到 [模板](https://github.com/SXP-Simon/astrbot_plugin_qq_group_daily_analysis/tree/main/assets) 文件夹中查看模板样式效果"
+                "hint": "分析报告使用的 HTML 模板名称。可以使用 `/设置模板` 查看使用指南，使用 `/查看模板` 命令查看模板样式效果。"
             },
             "profile_display_mode": {
                 "type": "string",
@@ -221,7 +221,7 @@
                     "max": 1440,
                     "step": 10
                 },
-                "hint": "仅在模板未提供 T2I 可识别的数字 width 时传给 AstrBot T2I，避免服务升级后回退到 800px 默认宽度而挤压宽版报告模板。内置主题建议保持 1440；自定义模板可用 meta viewport 的数字 width 指定自身宽度。"
+                "hint": "仅在模板未提供可识别的数字 width 时传给 GsCore HTML 渲染器。内置主题建议保持 1440；自定义模板可用 meta viewport 的数字 width 指定自身宽度。"
             },
             "t2i_viewport_height": {
                 "type": "int",
@@ -232,7 +232,7 @@
                     "max": 1440,
                     "step": 10
                 },
-                "hint": "仅在模板未提供 T2I 可识别的数字 height 时传给 AstrBot T2I。图片报告始终使用 full_page，不会按此高度截断整张报告。"
+                "hint": "仅在模板未提供可识别的数字 height 时传给 GsCore HTML 渲染器。图片报告始终使用 full_page，不会按此高度截断整张报告。"
             },
             "t2i_r2_type": {
                 "type": "string",
@@ -404,7 +404,7 @@
                 "type": "bool",
                 "description": "启用流式 LLM 调用",
                 "default": false,
-                "hint": "默认关闭，使用原有非流式调用方式。开启后，插件将使用 AstrBot Provider 的流式接口并聚合结果，适用于仅支持 stream=true 的服务。"
+                "hint": "默认关闭，使用非流式调用方式。开启后，插件将使用 GsCore AI Provider 的流式接口并聚合结果，适用于仅支持 stream=true 的服务。"
             }
         }
     },
@@ -577,15 +577,16 @@
             "drawing_backend": {
                 "description": "绘图后端",
                 "type": "string",
-                "options": ["builtin", "general_plugin", "big_banana"],
+                "options": ["builtin"],
                 "default": "builtin",
-                "hint": "builtin=使用本插件内置绘图客户端；general_plugin=调用已安装的「通用生图」插件（https://cloud.astrbot.app/plugin/railgun19457/astrbot_plugin_image_generation）的公共 API；big_banana=调用已安装的「大香蕉」插件（https://cloud.astrbot.app/plugin/sukafon/astrbot_plugin_big_banana）的绘图管线（支持 Gemini、SiliconFlow 等多家服务）。使用外部后端时，需先在对应插件中配置其自身的 API/提供商；未安装、未激活或调用失败时自动回退内置后端。"
+                "hint": "GsCore 版本统一使用本插件内置绘图客户端，并按绘图供应商配置表调用图片生成 API。"
             },
             "drawing_external_fallback": {
                 "description": "外部后端失败时回退内置后端",
                 "type": "bool",
                 "default": true,
-                "hint": "使用通用生图/大香蕉外部绘图后端时，若其未安装、未激活或生成失败，是否自动回退到本插件内置绘图客户端；关闭后失败将直接取消本次漫画生成。"
+                "invisible": true,
+                "hint": "旧版配置仅用于兼容迁移，GsCore 版本始终使用内置绘图客户端。"
             },
             "drawing_provider_overrides": {
                 "description": "绘图供应商配置表",
@@ -1589,7 +1590,7 @@
                 "type": "string",
                 "description": "报告储存目录",
                 "default": "",
-                "hint": "HTML报告文件的保存目录，用于存储生成的 HTML 文件和原始 JSON 数据。留空则自动使用插件数据目录（astrbot_path/data/plugin_data/astrbot_plugin_qq_group_daily_analysis/）下的 self_hosted_html_reports 目录。"
+                "hint": "HTML 报告文件的保存目录，用于存储生成的 HTML 文件和原始 JSON 数据。留空则自动使用 GsCore 的 data/QQGroupDailyAnalysis/self_hosted_html_reports 目录。"
             },
             "html_only_url": {
                 "type": "bool",

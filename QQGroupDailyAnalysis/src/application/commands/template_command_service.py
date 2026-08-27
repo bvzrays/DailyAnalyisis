@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 
-from astrbot.api.message_components import Image, Node, Nodes, Plain
+from ....gscore_runtime import Image, Node, Nodes, Plain
 
 
 class TemplateCommandService:

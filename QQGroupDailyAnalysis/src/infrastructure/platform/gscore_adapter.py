@@ -1,24 +1,24 @@
 from __future__ import annotations
 
-import asyncio
 import json
-import sqlite3
 import time
+import base64
+import asyncio
+import sqlite3
 from pathlib import Path
 
 from gsuid_core.bot import Bot
-from gsuid_core.models import Event
+from gsuid_core.models import Event, Message
 from gsuid_core.segment import MessageSegment
 
-from ...domain.value_objects.platform_capabilities import PlatformCapabilities
+from .base import PlatformAdapter
 from ...domain.value_objects.unified_group import UnifiedGroup, UnifiedMember
 from ...domain.value_objects.unified_message import (
     MessageContent,
-    MessageContentType,
     UnifiedMessage,
+    MessageContentType,
 )
-from ...utils.logger import logger
-from .base import PlatformAdapter
+from ...domain.value_objects.platform_capabilities import PlatformCapabilities
 
 
 class GsCorePlatformAdapter(PlatformAdapter):
@@ -53,7 +53,10 @@ class GsCorePlatformAdapter(PlatformAdapter):
                 )
                 """
             )
-            connection.execute("CREATE INDEX IF NOT EXISTS idx_messages_lookup ON messages(platform_id, group_id, timestamp)")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_messages_lookup "
+                "ON messages(platform_id, group_id, timestamp)"
+            )
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS groups (
@@ -125,10 +128,20 @@ class GsCorePlatformAdapter(PlatformAdapter):
             elif segment_type == "file":
                 contents.append(MessageContent(MessageContentType.FILE, url=str(data or "")))
             else:
-                contents.append(MessageContent(MessageContentType.UNKNOWN, raw_data={"type": segment_type, "data": data}))
+                contents.append(
+                    MessageContent(
+                        MessageContentType.UNKNOWN,
+                        raw_data={"type": segment_type, "data": data},
+                    )
+                )
         if not contents and event.raw_text:
             contents.append(MessageContent(MessageContentType.TEXT, text=event.raw_text))
-        sender_name = str(event.sender.get("card") or event.sender.get("nickname") or event.sender.get("name") or event.user_id)
+        sender_name = str(
+            event.sender.get("card")
+            or event.sender.get("nickname")
+            or event.sender.get("name")
+            or event.user_id
+        )
         sender_card = str(event.sender.get("card") or "") or None
         message_id = str(event.msg_id or f"{event.user_id}-{time.time_ns()}")
         timestamp = int(event.sender.get("timestamp") or time.time())
@@ -149,14 +162,55 @@ class GsCorePlatformAdapter(PlatformAdapter):
                 bot_self_id,
             )
 
-    def _record_sync(self, group_id: str, message_id: str, sender_id: str, sender_name: str, sender_card: str | None, timestamp: int, text_content: str, contents: list[dict], group_name: str, bot_self_id: str) -> None:
+    def _record_sync(
+        self,
+        group_id: str,
+        message_id: str,
+        sender_id: str,
+        sender_name: str,
+        sender_card: str | None,
+        timestamp: int,
+        text_content: str,
+        contents: list[dict],
+        group_name: str,
+        bot_self_id: str,
+    ) -> None:
         with sqlite3.connect(self.db_path) as connection:
             connection.execute(
                 "INSERT OR IGNORE INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (self.platform_id, group_id, message_id, sender_id, sender_name, sender_card, timestamp, text_content, json.dumps(contents, ensure_ascii=False)),
+                (
+                    self.platform_id,
+                    group_id,
+                    message_id,
+                    sender_id,
+                    sender_name,
+                    sender_card,
+                    timestamp,
+                    text_content,
+                    json.dumps(contents, ensure_ascii=False),
+                ),
             )
-            connection.execute("INSERT OR REPLACE INTO groups VALUES (?, ?, ?, ?, ?)", (self.platform_id, group_id, group_name, bot_self_id, int(time.time())))
-            connection.execute("INSERT OR REPLACE INTO members VALUES (?, ?, ?, ?, ?, ?)", (self.platform_id, group_id, sender_id, sender_name, sender_card, int(time.time())))
+            connection.execute(
+                "INSERT OR REPLACE INTO groups VALUES (?, ?, ?, ?, ?)",
+                (
+                    self.platform_id,
+                    group_id,
+                    group_name,
+                    bot_self_id,
+                    int(time.time()),
+                ),
+            )
+            connection.execute(
+                "INSERT OR REPLACE INTO members VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    self.platform_id,
+                    group_id,
+                    sender_id,
+                    sender_name,
+                    sender_card,
+                    int(time.time()),
+                ),
+            )
 
     @staticmethod
     def _content_to_dict(content: MessageContent) -> dict:
@@ -186,7 +240,14 @@ class GsCorePlatformAdapter(PlatformAdapter):
             raw_data=data.get("raw_data"),
         )
 
-    async def fetch_messages(self, group_id: str, days: int = 1, max_count: int = 1000, before_id: str | None = None, since_ts: int | None = None) -> list[UnifiedMessage]:
+    async def fetch_messages(
+        self,
+        group_id: str,
+        days: int = 1,
+        max_count: int = 1000,
+        before_id: str | None = None,
+        since_ts: int | None = None,
+    ) -> list[UnifiedMessage]:
         cutoff = int(since_ts if since_ts is not None else time.time() - max(days, 1) * 86400)
         rows = await asyncio.to_thread(self._fetch_sync, str(group_id), cutoff, max_count, before_id)
         messages = []
@@ -202,10 +263,18 @@ class GsCorePlatformAdapter(PlatformAdapter):
         return messages
 
     def _fetch_sync(self, group_id: str, cutoff: int, max_count: int, before_id: str | None) -> list[tuple]:
-        query = "SELECT message_id, sender_id, sender_name, sender_card, timestamp, text_content, group_id, contents_json FROM messages WHERE platform_id=? AND group_id=? AND timestamp>=?"
+        query = (
+            "SELECT message_id, sender_id, sender_name, sender_card, timestamp, "
+            "text_content, group_id, contents_json FROM messages "
+            "WHERE platform_id=? AND group_id=? AND timestamp>=?"
+        )
         params: list[object] = [self.platform_id, group_id, cutoff]
         if before_id:
-            query += " AND timestamp < COALESCE((SELECT timestamp FROM messages WHERE platform_id=? AND group_id=? AND message_id=?), 9223372036854775807)"
+            query += (
+                " AND timestamp < COALESCE((SELECT timestamp FROM messages "
+                "WHERE platform_id=? AND group_id=? AND message_id=?), "
+                "9223372036854775807)"
+            )
             params.extend([self.platform_id, group_id, before_id])
         query += " ORDER BY timestamp DESC LIMIT ?"
         params.append(max(1, int(max_count)))
@@ -217,7 +286,11 @@ class GsCorePlatformAdapter(PlatformAdapter):
             {
                 "message_id": message.message_id,
                 "time": message.timestamp,
-                "sender": {"user_id": message.sender_id, "nickname": message.sender_name, "card": message.sender_card or ""},
+                "sender": {
+                    "user_id": message.sender_id,
+                    "nickname": message.sender_name,
+                    "card": message.sender_card or "",
+                },
                 "message": [self._raw_content(content) for content in message.contents],
                 "group_id": message.group_id,
                 "raw_message": message.text_content,
@@ -246,12 +319,31 @@ class GsCorePlatformAdapter(PlatformAdapter):
         await bot.target_send(text, "group", str(group_id))
         return True
 
+    async def set_reaction(
+        self,
+        group_id: str,
+        message_id: str,
+        reaction_type: str,
+    ) -> bool:
+        fallback_messages = {
+            "analysis_started": "🔍 正在启动分析引擎，正在拉取最近消息...",
+            "analysis_done": "✅ 分析完成，正在生成报告...",
+        }
+        text = fallback_messages.get(str(reaction_type))
+        if text is None:
+            return False
+        return await self.send_text(group_id, text, reply_to=message_id)
+
     async def send_image(self, group_id: str, image_path: str, caption: str = "") -> bool:
         bot = self._bot_for_group(group_id)
         if bot is None:
             return False
         message = MessageSegment.image(image_path)
-        await bot.target_send(([MessageSegment.text(caption), message] if caption else [message]), "group", str(group_id))
+        await bot.target_send(
+            [MessageSegment.text(caption), message] if caption else [message],
+            "group",
+            str(group_id),
+        )
         return True
 
     async def send_file(self, group_id: str, file_path: str, filename: str | None = None) -> bool:
@@ -260,6 +352,83 @@ class GsCorePlatformAdapter(PlatformAdapter):
         if bot is None or not path.exists():
             return False
         await bot.target_send([MessageSegment.file(path, filename or path.name)], "group", str(group_id))
+        return True
+
+    async def find_or_create_folder(
+        self,
+        group_id: str,
+        folder_name: str,
+    ) -> str | None:
+        if not folder_name.strip() or self._bot_for_group(group_id) is None:
+            return None
+        return f"__gscore_folder_name__:{folder_name.strip()}"
+
+    async def upload_group_file_to_folder(
+        self,
+        group_id: str,
+        file_path: str,
+        filename: str | None = None,
+        folder_id: str | None = None,
+    ) -> bool:
+        bot = self._bot_for_group(group_id)
+        path = Path(file_path)
+        if bot is None or not path.is_file():
+            return False
+        encoded = base64.b64encode(await asyncio.to_thread(path.read_bytes)).decode()
+        folder_name = None
+        if folder_id and folder_id.startswith("__gscore_folder_name__:"):
+            folder_name = folder_id.split(":", 1)[1]
+            folder_id = None
+        await bot.target_send(
+            [
+                Message(
+                    type="execute_onebot_action",
+                    data={
+                        "operation": "upload_group_file",
+                        "group_id": str(group_id),
+                        "file_name": filename or path.name,
+                        "file_base64": encoded,
+                        "folder_id": folder_id,
+                        "folder_name": folder_name,
+                    },
+                )
+            ],
+            "group",
+            str(group_id),
+        )
+        return True
+
+    async def upload_group_album(
+        self,
+        group_id: str,
+        image_path: str,
+        album_id: str | None = None,
+        album_name: str | None = None,
+        strict_mode: bool = False,
+    ) -> bool:
+        bot = self._bot_for_group(group_id)
+        path = Path(image_path)
+        if bot is None or not path.is_file():
+            return False
+        encoded = base64.b64encode(await asyncio.to_thread(path.read_bytes)).decode()
+        await bot.target_send(
+            [
+                Message(
+                    type="execute_onebot_action",
+                    data={
+                        "operation": "upload_group_album",
+                        "group_id": str(group_id),
+                        "file_name": path.name,
+                        "file_base64": encoded,
+                        "album_id": album_id,
+                        "album_name": album_name,
+                        "strict_mode": bool(strict_mode),
+                    },
+                )
+            ],
+            "group",
+            str(group_id),
+        )
         return True
 
     async def send_forward_msg(self, group_id: str, nodes: list[dict]) -> bool:
@@ -279,21 +448,44 @@ class GsCorePlatformAdapter(PlatformAdapter):
         return True
 
     async def get_group_info(self, group_id: str) -> UnifiedGroup | None:
-        row = await asyncio.to_thread(self._one_sync, "SELECT group_name FROM groups WHERE platform_id=? AND group_id=?", (self.platform_id, str(group_id)))
+        row = await asyncio.to_thread(
+            self._one_sync,
+            "SELECT group_name FROM groups WHERE platform_id=? AND group_id=?",
+            (self.platform_id, str(group_id)),
+        )
         if row is None:
             return None
-        return UnifiedGroup(str(group_id), str(row[0]), member_count=len(await self.get_member_list(group_id)), platform=self.platform_id)
+        return UnifiedGroup(
+            str(group_id),
+            str(row[0]),
+            member_count=len(await self.get_member_list(group_id)),
+            platform=self.platform_id,
+        )
 
     async def get_group_list(self) -> list[str]:
-        rows = await asyncio.to_thread(self._all_sync, "SELECT group_id FROM groups WHERE platform_id=? ORDER BY updated_at DESC", (self.platform_id,))
+        rows = await asyncio.to_thread(
+            self._all_sync,
+            "SELECT group_id FROM groups WHERE platform_id=? ORDER BY updated_at DESC",
+            (self.platform_id,),
+        )
         return [str(row[0]) for row in rows]
 
     async def get_member_list(self, group_id: str) -> list[UnifiedMember]:
-        rows = await asyncio.to_thread(self._all_sync, "SELECT user_id, nickname, card FROM members WHERE platform_id=? AND group_id=?", (self.platform_id, str(group_id)))
+        rows = await asyncio.to_thread(
+            self._all_sync,
+            "SELECT user_id, nickname, card FROM members "
+            "WHERE platform_id=? AND group_id=?",
+            (self.platform_id, str(group_id)),
+        )
         return [UnifiedMember(str(row[0]), str(row[1]), str(row[2]) if row[2] else None) for row in rows]
 
     async def get_member_info(self, group_id: str, user_id: str) -> UnifiedMember | None:
-        row = await asyncio.to_thread(self._one_sync, "SELECT nickname, card FROM members WHERE platform_id=? AND group_id=? AND user_id=?", (self.platform_id, str(group_id), str(user_id)))
+        row = await asyncio.to_thread(
+            self._one_sync,
+            "SELECT nickname, card FROM members "
+            "WHERE platform_id=? AND group_id=? AND user_id=?",
+            (self.platform_id, str(group_id), str(user_id)),
+        )
         return UnifiedMember(str(user_id), str(row[0]), str(row[1]) if row and row[1] else None) if row else None
 
     def _all_sync(self, query: str, params: tuple) -> list[tuple]:

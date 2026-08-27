@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { fetchContext, AstrBotContext } from "../api/bridge";
 
-const THEME_CACHE_KEY = "astrbot_plugin_theme_is_dark";
+const THEME_CACHE_KEY = "qq_group_daily_analysis_theme_is_dark";
 
 function getInitialTheme(): boolean {
   try {
-    // 1. 优先从 URL 参数中直接获取（最权威且无时延，AstrBot iframe 路由必带 ?theme=dark / light）
+    // 1. 优先从 URL 参数中直接获取。
     if (typeof window !== "undefined" && window.location) {
       const params = new URLSearchParams(window.location.search);
       const themeVal = params.get("theme");
@@ -27,7 +26,7 @@ function getInitialTheme(): boolean {
       }
     }
 
-    // 3. 尝试读取父级窗口 (AstrBot Host) document 属性或暗色 class
+    // 3. 尝试读取父级窗口的 document 属性或暗色 class。
     try {
       if (window.parent && window.parent.document) {
         const parentHtml = window.parent.document.documentElement;
@@ -64,26 +63,8 @@ function updateGlobalTheme(newVal: boolean) {
   }
 }
 
-// 统一由全局通信单例监听 AstrBot Host 事件
-if (typeof window !== "undefined") {
-  fetchContext().then((ctx) => {
-    if (ctx?.isDark !== undefined) {
-      updateGlobalTheme(!!ctx.isDark);
-    }
-  });
-
-  const bridge = window.AstrBotPluginPage;
-  if (bridge && typeof bridge.onContext === "function") {
-    bridge.onContext((ctx: AstrBotContext) => {
-      if (ctx?.isDark !== undefined) {
-        updateGlobalTheme(!!ctx.isDark);
-      }
-    });
-  }
-}
-
 /**
- * 监听 AstrBot 宿主暗黑模式状态 Hook (Shared Theme Hook)
+ * 监听 GsCore 页面暗黑模式状态 Hook。
  * 全局单例响应式同步，杜绝任何页面与抽屉组件的状态割裂
  */
 export function useTheme() {

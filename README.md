@@ -68,6 +68,7 @@ uv run core
 - 可从群聊话题独立生成漫画，也可在群分析完成后自动联动。
 - 支持角色方案、参考图、多个绘图 Provider、失败回退、代理、重试与并发控制。
 - 支持将漫画额外上传至兼容平台的群相册。
+- 漫画分镜可使用普通文本模型，但最终出图必须配置真正支持图片生成的模型。
 
 </p></details>
 
@@ -91,7 +92,7 @@ uv run core
 
 - 提供运行总览、活跃任务、分析记录、统计消耗、历史报告、日志和完整配置中心。
 - 配置页面直接读取最新版 `_conf_schema.json`，12 个配置组、101 个叶子配置全部可编辑。
-- WebUI 与 21 个插件 API 直接挂载到 GsCore 的 FastAPI 应用。
+- WebUI 与 22 个插件 API 直接挂载到 GsCore 的 FastAPI 应用。
 
 </p></details>
 
@@ -159,6 +160,18 @@ uv run core
 
 API Key 仅应保存在本机 `data/ai_core/openai_config/`，不要提交到插件仓库或公开日志。
 
+> [!NOTE]
+> 分析模型与绘图模型可以使用同一 API 地址，但绘图模型本身必须支持生图。若服务端对 `/images/generations` 返回“不支持该模型”，或 Chat API 仅返回文本，日报分析仍可正常运行，漫画则不会产生最终图片。
+
+## 丨AstrBot 连接
+
+1. 在 AstrBot 中只启用 `astrbot_plugin_gscore_adapter`，不要再安装原 AstrBot 群分析插件。
+2. 将适配器地址设置为 `127.0.0.1`，端口设置为 `8765`。
+3. 将适配器的 WebSocket Token 设置为 GsCore `data/config.json` 中的 `WS_TOKEN`。
+4. 先启动 GsCore，再启动或重载 AstrBot 适配器；看到 GsCore 的 WebSocket 连接成功日志即完成连接。
+
+群文件夹和群相册上传需要适配器支持受限的 `execute_onebot_action` 上传控制段；普通文本、图片、HTML 文件和合并转发不依赖此扩展。
+
 ## 丨WebUI
 
 默认 GsCore 端口为 `8765`，插件页面地址：
@@ -170,10 +183,10 @@ http://localhost:8765/qq-group-daily-analysis/
 API 前缀：
 
 ```text
-/api/astrbot_plugin_qq_group_daily_analysis/
+/api/qq_group_daily_analysis/
 ```
 
-API 前缀为了兼容上游已构建前端而保留；请求由 GsCore FastAPI 直接处理，不会访问 AstrBot。
+请求由 GsCore FastAPI 直接处理，WebUI 不依赖任何外部宿主页面桥。
 
 ## 丨数据目录
 
@@ -195,14 +208,22 @@ API 前缀为了兼容上游已构建前端而保留；请求由 GsCore FastAPI 
 uv run core
 ```
 
-本仓库的 Windows 测试环境也提供 `启动早柚核心.bat`。看到日志中的 `QQGroupDailyAnalysis 就绪` 以及适配器连接成功提示后即可在群聊中使用指令。
+使用当前 Windows 虚拟环境时也可以执行：
+
+```powershell
+$env:PYTHONUTF8 = "1"
+$env:NO_PROXY = "localhost,127.0.0.1"
+.\.venv\Scripts\core.exe
+```
+
+看到日志中的 `QQGroupDailyAnalysis 就绪` 以及当前消息适配器的连接成功提示后即可在群聊中使用指令。
 
 ## 丨实现说明
 
 - GsCore `Plugins` / `SV` 原生注册插件生命周期、消息归档和全部七个命令。
-- GsCore `Event` 会被转换为上游领域层可消费的统一事件，平台发送由 GsCore `Bot` 完成。
-- 上游业务模块、模板、Dashboard、配置 schema 与测试被完整保留；仓库内兼容门面只用于复用这些业务接口，不连接或依赖外部 AstrBot 运行时。
-- LLM 调用由 `GsCoreAIAgent` 执行，插件无需 AstrBot Provider。
+- GsCore `Event` 会被转换为插件统一事件，平台发送由 GsCore `Bot` 完成。
+- 配置、持久化、HTML 渲染、Web API 和消息组件均由插件内的 GsCore 运行时实现。
+- LLM 调用由 `GsCoreAIAgent` 执行，不借用其他机器人框架的 Provider 或配置中心。
 
 ## 丨感谢
 

@@ -386,7 +386,7 @@ class TraceSQLiteStore:
                 UPDATE analysis_traces
                 SET status = 'aborted',
                     error_stage = 'CRASH_RECOVERY',
-                    error_message = 'AstrBot/容器在任务执行期间异常终止，开机已自动回收',
+                    error_message = 'GsCore/容器在任务执行期间异常终止，启动时已自动回收',
                     completed_at = strftime('%s', 'now')
                 WHERE status = 'running'
                 """

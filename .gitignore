@@ -4,6 +4,9 @@
 .sisyphus/
 .ace-tool/
 .tmp_refs/
+.vscode/
+astrbot/
+tests/
 
 # Python caches
 **/__pycache__
@@ -19,6 +22,7 @@ debug_*.html
 test_*.html
 scripts/output/
 scripts/output_all/
+QQGroupDailyAnalysis/scripts/
 data/debug_data/
 data/test/
 

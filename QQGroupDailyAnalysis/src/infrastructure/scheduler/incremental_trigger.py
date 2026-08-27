@@ -226,9 +226,9 @@ class IncrementalTriggerCoordinator:
         """记录一条群消息，并在达到阈值时安排分析。
 
         Args:
-            platform_id: AstrBot 平台实例 ID。
+            platform_id: GsCore 平台实例 ID。
             group_id: 平台群组 ID。
-            unified_msg_origin: AstrBot 统一消息来源。
+            unified_msg_origin: GsCore 统一消息来源。
             message_id: 平台消息 ID，用于抑制重复事件。
 
         Returns:

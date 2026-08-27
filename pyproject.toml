@@ -31,7 +31,3 @@ select = ["E", "F", "I", "W"]
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
 exclude = ["QQGroupDailyAnalysis/dashboard", "QQGroupDailyAnalysis/pages"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-asyncio_mode = "auto"

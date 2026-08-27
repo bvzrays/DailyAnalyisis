@@ -1,24 +1,46 @@
 from __future__ import annotations
 
+import re
 import json
 from types import SimpleNamespace
-from pathlib import Path
 
-from astrbot.api.provider import Usage, LLMResponse
+from .config import PluginPaths
+from .provider import LLMUsage, LLMResponse
+
+_SVG_OPEN_TAG_RE = re.compile(r"<svg\b[^>]*>", re.IGNORECASE)
+_DOODLE_CLASS_RE = re.compile(
+    r'''\bclass\s*=\s*(["'])[^"']*\bdoodle\b[^"']*\1''',
+    re.IGNORECASE,
+)
+_SVG_DIMENSION_RE = re.compile(
+    r'''\s(?:width|height)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)''',
+    re.IGNORECASE,
+)
 
 
-class StarTools:
-    _data_dir: Path = Path.cwd() / "data" / "QQGroupDailyAnalysis"
+def _protect_inline_icons(html: str) -> str:
+    def replace_tag(match: re.Match[str]) -> str:
+        tag = match.group(0)
+        if _DOODLE_CLASS_RE.search(tag) is None:
+            return tag
+        without_dimensions = _SVG_DIMENSION_RE.sub("", tag)
+        return without_dimensions[:-1] + ' width="100%" height="100%">'
 
-    @classmethod
-    def set_data_dir(cls, path: Path) -> None:
-        cls._data_dir = path
-        cls._data_dir.mkdir(parents=True, exist_ok=True)
+    return _SVG_OPEN_TAG_RE.sub(replace_tag, html)
 
-    @classmethod
-    def get_data_dir(cls, plugin_name: str) -> Path:
-        cls._data_dir.mkdir(parents=True, exist_ok=True)
-        return cls._data_dir
+
+def _usage_from_entries(entries: list[object]) -> LLMUsage:
+    usage = LLMUsage()
+    for entry in entries:
+        if not isinstance(entry, dict) or entry.get("type") != "token_usage":
+            continue
+        data = entry.get("data")
+        if not isinstance(data, dict):
+            continue
+        usage.prompt_tokens += int(data.get("input_tokens", 0) or 0)
+        usage.completion_tokens += int(data.get("output_tokens", 0) or 0)
+    usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
+    return usage
 
 
 class _Provider:
@@ -46,6 +68,9 @@ class _Provider:
             task_level="high",
             dynamic_tools=False,
         )
+        session_logger = getattr(agent, "_session_logger", None)
+        entries = getattr(session_logger, "entries", [])
+        entry_count = len(entries) if isinstance(entries, list) else 0
         result = await agent.run(
             prompt,
             return_mode="return",
@@ -53,7 +78,13 @@ class _Provider:
             suppress_intermediate_text=True,
         )
         text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
-        return LLMResponse(role="assistant", completion_text=text, usage=Usage())
+        current_entries = getattr(session_logger, "entries", [])
+        new_entries = current_entries[entry_count:] if isinstance(current_entries, list) else []
+        return LLMResponse(
+            role="assistant",
+            completion_text=text,
+            usage=_usage_from_entries(new_entries),
+        )
 
 
 class _CronManager:
@@ -64,7 +95,7 @@ class _CronManager:
         return scheduler
 
 
-class Context:
+class PluginContext:
     def __init__(self) -> None:
         self.cron_manager = _CronManager()
         self._provider = _Provider()
@@ -83,16 +114,22 @@ class Context:
     async def llm_generate(self, **kwargs) -> LLMResponse:
         return await self._provider.text_chat(**kwargs)
 
-    def register_web_api(self, path, handler, methods, description="") -> None:
-        from astrbot.api.web import register_route
+    def register_web_api(
+        self,
+        path,
+        handler,
+        methods,
+        description: str = "",
+    ) -> None:
+        from .web import register_route
 
         register_route(path, handler, methods, description)
 
 
-class Star:
-    def __init__(self, context: Context, config: dict | None = None) -> None:
+class PluginBase:
+    def __init__(self, context: PluginContext, config: dict | None = None) -> None:
         self.context = context
-        self._kv_path = StarTools.get_data_dir("") / "kv_store.json"
+        self._kv_path = PluginPaths.get_data_dir() / "kv_store.json"
 
     async def put_kv_data(self, key: str, value: object) -> None:
         data = self._read_kv()
@@ -111,7 +148,13 @@ class Star:
         except (OSError, json.JSONDecodeError):
             return {}
 
-    async def html_render(self, tmpl: str, data: dict, return_url=True, options: dict | None = None):
+    async def html_render(
+        self,
+        tmpl: str,
+        data: dict,
+        return_url: bool = True,
+        options: dict | None = None,
+    ):
         from gsuid_core.utils.html_render import render_html_to_bytes
 
         opts = options or {}
@@ -120,11 +163,11 @@ class Star:
         image_type = str(opts.get("type", "jpeg")).lower()
         image_format = "jpeg" if image_type in {"jpg", "jpeg"} else "png"
         return await render_html_to_bytes(
-            tmpl,
+            _protect_inline_icons(tmpl),
             max_width=width,
             image_format=image_format,
             jpeg_quality=int(opts.get("quality", 95)),
         )
 
 
-__all__ = ["Context", "Star", "StarTools"]
+__all__ = ["PluginBase", "PluginContext"]

@@ -8,8 +8,7 @@ import inspect
 import random
 import time
 
-from astrbot.api.provider import LLMResponse
-from astrbot.api.star import Context
+from .....gscore_runtime import LLMResponse, PluginContext
 
 from ....shared.trace_context import TraceContext
 from ....utils.logger import logger
@@ -33,7 +32,7 @@ def _format_task_await_chain(
 
     这里只输出协程的文件、行号与函数名，不读取 frame locals，避免将 prompt、
     API Key 或 Provider 请求参数写入日志。该链路用于定位长时间 LLM 请求到底
-    卡在插件、AstrBot Context、Provider SDK 还是 HTTP 客户端层。
+    卡在插件、GsCore Context、Provider SDK 还是 HTTP 客户端层。
 
     Args:
         task: 正在执行的 asyncio 任务。
@@ -127,7 +126,7 @@ def _get_circuit_breaker(provider_id: str) -> CircuitBreaker:
 
 
 async def _call_provider_stream(
-    context: Context, provider_id: str, llm_kwargs: dict[str, JSONValue]
+    context: PluginContext, provider_id: str, llm_kwargs: dict[str, JSONValue]
 ) -> LLMResponse:
     provider = context.get_provider_by_id(provider_id=provider_id)
     if provider is None:
@@ -167,7 +166,7 @@ async def _try_get_provider_id_by_id(
     尝试通过 ID 获取 Provider ID 的辅助函数
 
     Args:
-        context: AstrBot上下文对象
+        context: GsCore 分析上下文对象
         provider_id: Provider ID
         description: 描述信息，用于日志
 
@@ -195,7 +194,7 @@ async def _try_get_session_provider_id(context, umo: str | None) -> str | None:
     尝试获取会话 Provider ID 的辅助函数
 
     Args:
-        context: AstrBot上下文对象
+        context: GsCore 分析上下文对象
         umo: unified_msg_origin
 
     Returns:
@@ -217,7 +216,7 @@ async def _try_get_first_available_provider_id(context) -> str | None:
     尝试获取第一个可用 Provider ID 的辅助函数
 
     Args:
-        context: AstrBot上下文对象
+        context: GsCore 分析上下文对象
 
     Returns:
         Provider ID 或 None
@@ -239,7 +238,7 @@ async def _try_get_first_available_provider_id(context) -> str | None:
 
 
 async def get_provider_id_with_fallback(
-    context: Context,
+    context: PluginContext,
     config_manager: ConfigManager,
     provider_id_key: str | None,
     umo: str | None = None,
@@ -254,7 +253,7 @@ async def get_provider_id_with_fallback(
     4. 回退到第一个可用的 Provider
 
     Args:
-        context: AstrBot上下文对象
+        context: GsCore 分析上下文对象
         config_manager: 配置管理器
         provider_id_key: 配置中的 provider_id 键名（如 'topic_provider_id'）
         umo: unified_msg_origin，用于获取会话默认 Provider
@@ -336,7 +335,7 @@ async def get_provider_id_with_fallback(
 
 
 async def call_provider_with_retry(
-    context: Context,
+    context: PluginContext,
     config_manager: ConfigManager,
     prompt: str,
     umo: str | None = None,
@@ -351,7 +350,7 @@ async def call_provider_with_retry(
     调用LLM提供者，带超时、重试与退避。支持自定义服务商和配置化 Provider 选择。
 
     Args:
-        context: AstrBot上下文对象
+        context: GsCore 分析上下文对象
         config_manager: 配置管理器
         prompt: 输入的提示语
         umo: 指定使用的模型唯一标识符
@@ -364,8 +363,7 @@ async def call_provider_with_retry(
     Returns:
         LLM生成的结果，失败时返回None
     """
-    # 注意: 超时由 AstrBot Provider 内部配置控制，不再使用插件层 asyncio.wait_for
-    # 用户可在 AstrBot WebUI 中为每个 Provider 配置 timeout 参数
+    # 超时由 GsCore AI Provider 配置控制，不在插件层额外包裹 asyncio.wait_for。
     retries = config_manager.get_llm_retries()
     backoff = config_manager.get_llm_backoff()
     enable_streaming_llm_call = config_manager.get_enable_streaming_llm_call()
@@ -732,8 +730,7 @@ def extract_token_usage(response) -> dict:
             usage = response.get("usage")
 
         if usage:
-            # 优先检查 AstrBot 的 TokenUsage 对象字段 (input, output, total)
-            # AstrBot TokenUsage define: input (prop), output (attr), total (prop)
+            # 兼容 TokenUsage 对象字段 (input, output, total)。
             if hasattr(usage, "input") and hasattr(usage, "output"):
                 token_usage["prompt_tokens"] = getattr(usage, "input", 0) or 0
                 token_usage["completion_tokens"] = getattr(usage, "output", 0) or 0

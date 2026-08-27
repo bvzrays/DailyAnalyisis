@@ -5,67 +5,60 @@
 重构版本 - 使用模块化架构，支持跨平台
 """
 
-import asyncio
 import os
-from collections.abc import AsyncGenerator, Callable
-from datetime import datetime
+import asyncio
 from pathlib import Path
+from datetime import datetime
 from urllib.parse import quote
+from collections.abc import Callable, AsyncGenerator
 
-from astrbot.api import AstrBotConfig
-from astrbot.api.event import AstrMessageEvent, filter
-from astrbot.api.event.filter import PermissionType
-from astrbot.api.star import Context, Star, StarTools
-
-# File is only available via astrbot.core (internal API — may change).
-from astrbot.core.message.components import File
-
-from .src.application.commands.template_command_service import (
-    TemplateCommandService,
+from .gscore_runtime import (
+    File,
+    PluginBase,
+    PluginPaths,
+    PluginConfig,
+    PluginContext,
+    PluginMessageEvent,
 )
-from .src.application.services.analysis_application_service import (
-    AnalysisApplicationService,
-    DuplicateGroupTaskError,
-)
-from .src.application.services.comic_application_service import ComicApplicationService
-from .src.application.services.message_processing_service import (
-    MessageProcessingService,
-)
-from .src.domain.services.analysis_domain_service import AnalysisDomainService
-from .src.domain.services.incremental_merge_service import IncrementalMergeService
+from .src.utils.logger import logger
+from .src.shared.constants import PLUGIN_NAME
+from .src.utils.resilience import GlobalRateLimiter
+from .src.shared.trace_context import TraceContext
 from .src.domain.services.statistics_service import StatisticsService
+from .src.infrastructure.platform.bot_manager import BotManager
+from .src.infrastructure.reporting.generators import ReportGenerator
 from .src.infrastructure.analysis.llm_analyzer import LLMAnalyzer
 from .src.infrastructure.config.config_manager import ConfigManager
 from .src.infrastructure.drawing.drawing_client import DrawingClient
+from .src.domain.services.analysis_domain_service import AnalysisDomainService
 from .src.infrastructure.messaging.message_sender import MessageSender
-from .src.infrastructure.persistence.checkpoint_store import CheckpointStore
+from .src.infrastructure.scheduler.auto_scheduler import AutoScheduler
+from .src.infrastructure.webui.plugin_page_bridge import PluginPageWebUIBridge
+from .src.infrastructure.webui.active_task_manager import ActiveTaskManager
+from .src.domain.services.incremental_merge_service import IncrementalMergeService
 from .src.infrastructure.persistence.history_manager import HistoryManager
+from .src.infrastructure.persistence.checkpoint_store import CheckpointStore
 from .src.infrastructure.persistence.incremental_store import IncrementalStore
+from .src.infrastructure.visualization.activity_charts import ActivityVisualizer
+from .src.application.commands.template_command_service import (
+    TemplateCommandService,
+)
+from .src.infrastructure.persistence.trace_sqlite_store import TraceSQLiteStore
+from .src.application.services.comic_application_service import ComicApplicationService
+from .src.application.services.analysis_application_service import (
+    DuplicateGroupTaskError,
+    AnalysisApplicationService,
+)
 from .src.infrastructure.persistence.platform_group_registry import (
     PlatformGroupRegistry,
 )
-from .src.infrastructure.persistence.trace_sqlite_store import TraceSQLiteStore
-from .src.infrastructure.platform.bot_manager import BotManager
-from .src.infrastructure.platform.template_preview import (
-    TelegramTemplatePreviewHandler,
-    TemplatePreviewRouter,
-)
-from .src.infrastructure.reporting.generators import ReportGenerator
-from .src.infrastructure.scheduler.auto_scheduler import AutoScheduler
-from .src.infrastructure.visualization.activity_charts import ActivityVisualizer
-from .src.infrastructure.webui.active_task_manager import ActiveTaskManager
-from .src.infrastructure.webui.plugin_page_bridge import PluginPageWebUIBridge
-from .src.shared.constants import PLUGIN_NAME
-from .src.shared.trace_context import TraceContext
-from .src.utils.logger import logger
-from .src.utils.resilience import GlobalRateLimiter
 
 
-class GroupDailyAnalysis(Star):
+class GroupDailyAnalysis(PluginBase):
     """群分析插件主类"""
 
     # ── 显式类型声明 (由 __init__ 初始化) ──
-    config: AstrBotConfig
+    config: PluginConfig
     config_manager: ConfigManager
     bot_manager: BotManager
     history_manager: HistoryManager
@@ -78,10 +71,7 @@ class GroupDailyAnalysis(Star):
     incremental_store: IncrementalStore
     incremental_merge_service: IncrementalMergeService
     analysis_service: AnalysisApplicationService
-    message_processing_service: MessageProcessingService
     template_command_service: TemplateCommandService
-    telegram_template_preview_handler: TelegramTemplatePreviewHandler
-    template_preview_router: TemplatePreviewRouter
     auto_scheduler: AutoScheduler
     message_sender: MessageSender
     trace_store: TraceSQLiteStore
@@ -89,7 +79,7 @@ class GroupDailyAnalysis(Star):
     active_task_manager: ActiveTaskManager
     webui_bridge: PluginPageWebUIBridge
 
-    def __init__(self, context: Context, config: AstrBotConfig):
+    def __init__(self, context: PluginContext, config: PluginConfig):
         super().__init__(context)
         self.config = config
 
@@ -100,7 +90,7 @@ class GroupDailyAnalysis(Star):
         self.bot_manager.set_plugin_instance(self)
         self.history_manager = HistoryManager(self)
 
-        plugin_data_dir = StarTools.get_data_dir(PLUGIN_NAME)
+        plugin_data_dir = PluginPaths.get_data_dir(PLUGIN_NAME)
         self.plugin_data_dir = plugin_data_dir
 
         self.report_generator = ReportGenerator(self.config_manager, plugin_data_dir)
@@ -148,11 +138,6 @@ class GroupDailyAnalysis(Star):
             context=context,
         )
 
-        # 消息处理服务
-        self.message_processing_service = MessageProcessingService(
-            context, self.platform_group_registry
-        )
-
         # 漫画生成并发与同群任务去重。
         self._comic_semaphore = asyncio.Semaphore(
             max(1, self.config_manager.get_t2i_max_concurrent())
@@ -161,14 +146,6 @@ class GroupDailyAnalysis(Star):
         self.template_command_service = TemplateCommandService(
             plugin_root=os.path.dirname(__file__)
         )
-        self.telegram_template_preview_handler = TelegramTemplatePreviewHandler(
-            config_manager=self.config_manager,
-            template_service=self.template_command_service,
-        )
-        self.template_preview_router = TemplatePreviewRouter(
-            handlers=[self.telegram_template_preview_handler]
-        )
-
         # 调度与发送
         self.message_sender = MessageSender(self.bot_manager, self.config_manager)
         self.auto_scheduler = AutoScheduler(
@@ -215,13 +192,12 @@ class GroupDailyAnalysis(Star):
     # orchestrators 缓存已移至 应用层逻辑 (分析服务) 或 暂时移除以简化。
     # 如果需要高性能缓存，后续可由 AnalysisApplicationService 内部维护。
 
-    @filter.on_platform_loaded()
     async def on_platform_loaded(self):
         """平台加载完成后初始化"""
         await self._run_initialization("Platform Loaded")
 
     async def initialize(self):
-        """在 AstrBot 插件生命周期中确认初始化已经完成。
+        """在 GsCore 插件生命周期中确认初始化已经完成。
 
         Returns:
             None: 初始化任务完成或恢复初始化完成后返回。
@@ -232,7 +208,7 @@ class GroupDailyAnalysis(Star):
             return
 
         try:
-            # 构造函数中的任务负责避免阻塞 AstrBot 启动；生命周期入口负责等待
+            # 构造函数中的任务负责避免阻塞 GsCore 启动；生命周期入口负责等待
             # 它完成，确保插件重载不会在平台刷新之前被判定为加载成功。
             await asyncio.shield(init_task)
         except asyncio.CancelledError:
@@ -274,15 +250,9 @@ class GroupDailyAnalysis(Star):
                     except Exception as e:
                         logger.warning(f"迁移旧版配置失败：{e}")
 
-                # AstrBot 会为每个平台调用一次此回调。平台发现只检查已创建的
+                # GsCore 事件会持续刷新平台状态。平台发现只检查已创建的
                 # 平台对象，可以安全重复执行；这样后加载的平台也不会被遗漏。
                 await self.bot_manager.initialize_from_config()
-
-                # 模板预览处理器依赖平台实例，因此每个平台加载时都要刷新。
-                if self.template_preview_router:
-                    await self.template_preview_router.ensure_handlers_registered(
-                        self.context
-                    )
 
                 if self._initialized:
                     logger.debug(
@@ -330,9 +300,6 @@ class GroupDailyAnalysis(Star):
                 logger.debug("正在停止自动调度器...")
                 await self.auto_scheduler.shutdown(self.context)
 
-            if self.template_preview_router:
-                await self.template_preview_router.unregister_handlers()
-
             if self.report_generator:
                 await self.report_generator.close()
 
@@ -348,15 +315,11 @@ class GroupDailyAnalysis(Star):
 
     # ==================== 群消息增量计数与事件缓存 ====================
 
-    @filter.event_message_type(
-        filter.EventMessageType.GROUP_MESSAGE,
-        priority=100,
-    )
-    async def count_incremental_group_message(self, event: AstrMessageEvent):
+    async def count_incremental_group_message(self, event: PluginMessageEvent):
         """记录目标群消息，达到配置阈值后触发增量分析。
 
         Args:
-            event: AstrBot 群消息事件。
+            event: GsCore 群消息事件。
 
         Returns:
             None: 计数完成后继续消息流水线。
@@ -371,72 +334,6 @@ class GroupDailyAnalysis(Star):
         if self.auto_scheduler:
             await self.auto_scheduler.record_incremental_message(event)
 
-    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
-    @filter.platform_adapter_type(filter.PlatformAdapterType.TELEGRAM)
-    async def intercept_telegram_messages(self, event: AstrMessageEvent):
-        """
-        拦截 Telegram 群消息并存储到数据库
-
-        委托给 MessageProcessingService 处理
-        """
-        try:
-            stored = await self.message_processing_service.process_message(event)
-            if stored and self.auto_scheduler:
-                await self.auto_scheduler.record_incremental_message(event)
-        except (ValueError, RuntimeError) as e:
-            logger.warning(f"[Telegram] 消息存储失败: {e}")
-        except Exception as e:
-            logger.error(f"[Telegram] 消息存储异常: {e}", exc_info=True)
-
-    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
-    @filter.platform_adapter_type(
-        filter.PlatformAdapterType.QQOFFICIAL
-        | filter.PlatformAdapterType.QQOFFICIAL_WEBHOOK
-    )
-    async def intercept_qq_official_messages(self, event: AstrMessageEvent):
-        """缓存 QQ 官方机器人群消息；频道消息不在本插件适配范围内。"""
-        raw_message = getattr(getattr(event, "message_obj", None), "raw_message", None)
-        if isinstance(raw_message, dict):
-            author = raw_message.get("author") or {}
-            group_openid = str(raw_message.get("group_openid", "") or "").strip()
-            member_openid = str(
-                author.get("member_openid", "") if isinstance(author, dict) else ""
-            ).strip()
-        else:
-            author = getattr(raw_message, "author", None)
-            group_openid = str(getattr(raw_message, "group_openid", "") or "").strip()
-            member_openid = str(getattr(author, "member_openid", "") or "").strip()
-        if not group_openid or not member_openid:
-            return
-
-        try:
-            adapter = self.bot_manager.get_adapter(event.get_platform_id())
-            remember_user_profile = getattr(adapter, "remember_user_profile", None)
-            if callable(remember_user_profile):
-                raw_avatar = (
-                    author.get("avatar")
-                    if isinstance(author, dict)
-                    else getattr(author, "avatar", None)
-                )
-                raw_nickname = (
-                    author.get("username")
-                    if isinstance(author, dict)
-                    else getattr(author, "username", None)
-                )
-                remember_user_profile(
-                    member_openid,
-                    nickname=str(raw_nickname or event.get_sender_name() or ""),
-                    avatar_url=str(raw_avatar or ""),
-                )
-
-            stored = await self.message_processing_service.process_message(event)
-            if stored and self.auto_scheduler:
-                await self.auto_scheduler.record_incremental_message(event)
-        except (ValueError, RuntimeError) as e:
-            logger.warning(f"[QQOfficial] 消息存储失败: {e}")
-        except Exception as e:
-            logger.error(f"[QQOfficial] 消息存储异常: {e}", exc_info=True)
-
     async def get_telegram_seen_group_ids(
         self, platform_id: str | None = None
     ) -> list[str]:
@@ -447,7 +344,7 @@ class GroupDailyAnalysis(Star):
         """读取任意事件驱动平台已经见过的群组。"""
         return await self.platform_group_registry.get_all_group_ids(platform_id)
 
-    def _get_group_id_from_event(self, event: AstrMessageEvent) -> str | None:
+    def _get_group_id_from_event(self, event: PluginMessageEvent) -> str | None:
         """从消息事件中安全获取群组 ID"""
         # 保留此辅助方法，因为在其他 command 中仍被频繁使用
         try:
@@ -456,7 +353,7 @@ class GroupDailyAnalysis(Star):
         except Exception:
             return None
 
-    def _get_platform_id_from_event(self, event: AstrMessageEvent) -> str:
+    def _get_platform_id_from_event(self, event: PluginMessageEvent) -> str:
         """从消息事件中获取平台唯一 ID"""
         # 保留此辅助方法，因为在其他 command 中仍被频繁使用
         try:
@@ -485,8 +382,8 @@ class GroupDailyAnalysis(Star):
         """
         尝试将图片报告上传到群文件和/或群相册（静默处理，失败仅日志提示）。
         """
-        import base64
         import re
+        import base64
         import tempfile
         from datetime import datetime
 
@@ -615,7 +512,8 @@ class GroupDailyAnalysis(Star):
                     # 严格模式下，名称为空时提前拦截，不再依赖适配器判断
                     if strict_mode and not album_name:
                         logger.info(
-                            f"{upload_label}严格模式开启：未设置目标相册名称，停止上传以防止操作群 {group_id} 的默认相册。"
+                            f"{upload_label}严格模式开启：未设置目标相册名称，"
+                            f"停止上传以防止操作群 {group_id} 的默认相册。"
                         )
                     elif hasattr(adapter, "upload_group_album"):
                         # 查找和兜底逻辑统一由适配器处理：
@@ -641,10 +539,8 @@ class GroupDailyAnalysis(Star):
                 except OSError:
                     pass
 
-    @filter.command("群分析", alias={"group_analysis"})
-    @filter.permission_type(PermissionType.ADMIN)
     async def analyze_group_daily(
-        self, event: AstrMessageEvent, days: int | None = None
+        self, event: PluginMessageEvent, days: int | None = None
     ):
         """
         分析群聊日常活动（跨平台支持）
@@ -735,7 +631,7 @@ class GroupDailyAnalysis(Star):
                 yield event.plain_result("🔍 正在启动分析引擎，正在拉取最近消息...")
             elif adapter and orig_msg_id:
                 await adapter.set_reaction(
-                    event.get_group_id(), orig_msg_id, "analysis_started"
+                    group_id, orig_msg_id, "analysis_started"
                 )
 
             # 调用 DDD 应用级服务
@@ -762,7 +658,7 @@ class GroupDailyAnalysis(Star):
 
             if not use_text_reply and adapter and orig_msg_id:
                 await adapter.set_reaction(
-                    event.get_group_id(), orig_msg_id, "analysis_done"
+                    group_id, orig_msg_id, "analysis_done"
                 )
 
             if self.active_task_manager:
@@ -797,10 +693,8 @@ class GroupDailyAnalysis(Star):
             if current_task:
                 self._background_tasks.discard(current_task)
 
-    @filter.command("群漫画", alias={"group_comic", "daily_comic"})
-    @filter.permission_type(PermissionType.ADMIN)
     async def generate_group_comic(
-        self, event: AstrMessageEvent, days: int | None = None
+        self, event: PluginMessageEvent, days: int | None = None
     ):
         """
         生成群聊趣味漫画（跨平台支持）
@@ -913,7 +807,7 @@ class GroupDailyAnalysis(Star):
             logger.warning(f"保存历史报告副本失败: {e}")
 
     async def _send_analysis_report(
-        self, event: AstrMessageEvent, result: dict
+        self, event: PluginMessageEvent, result: dict
     ) -> AsyncGenerator:
         """处理分析结果的渲染和发送"""
         if self._terminating or not self.config_manager:
@@ -1034,7 +928,7 @@ class GroupDailyAnalysis(Star):
                         # 若用户配置为空，使用默认目录
                         if not html_output_dir:
                             html_output_dir = os.path.join(
-                                StarTools.get_data_dir(PLUGIN_NAME),
+                                PluginPaths.get_data_dir(PLUGIN_NAME),
                                 "self_hosted_html_reports",
                             )
 
@@ -1207,7 +1101,7 @@ class GroupDailyAnalysis(Star):
 
                     reports_dir = (
                         getattr(self, "plugin_data_dir", None)
-                        or StarTools.get_data_dir(PLUGIN_NAME)
+                        or PluginPaths.get_data_dir(PLUGIN_NAME)
                     ) / "reports"
                     reports_dir.mkdir(parents=True, exist_ok=True)
                     comic_file_path = reports_dir / filename
@@ -1284,9 +1178,7 @@ class GroupDailyAnalysis(Star):
             return await adapter.send_text_report(group_id, tr, fallback_content=fr)
         return await adapter.send_text_report(group_id, tr)
 
-    @filter.command("设置格式", alias={"set_format"})
-    @filter.permission_type(PermissionType.ADMIN)
-    async def set_output_format(self, event: AstrMessageEvent, format_input: str = ""):
+    async def set_output_format(self, event: PluginMessageEvent, format_input: str = ""):
         """
         设置分析报告输出格式（跨平台支持）
         用法: /设置格式 [格式名称或序号] 或 image,html 等逗号分隔的组合
@@ -1343,7 +1235,8 @@ class GroupDailyAnalysis(Star):
 
         if not target_format:
             yield event.plain_result(
-                f"❌ 无效的格式类型 '{format_input}'。可用: {', '.join(available_formats)} 或序号 1-{len(available_formats)}"
+                f"❌ 无效的格式类型 '{format_input}'。可用: "
+                f"{', '.join(available_formats)} 或序号 1-{len(available_formats)}"
             )
             return
 
@@ -1353,10 +1246,8 @@ class GroupDailyAnalysis(Star):
         except Exception as e:
             yield event.plain_result(f"❌ 设置失败: {e}")
 
-    @filter.command("设置模板", alias={"set_template"})
-    @filter.permission_type(PermissionType.ADMIN)
     async def set_report_template(
-        self, event: AstrMessageEvent, template_input: str = ""
+        self, event: PluginMessageEvent, template_input: str = ""
     ):
         """
         设置分析报告模板（跨平台支持）
@@ -1401,9 +1292,7 @@ class GroupDailyAnalysis(Star):
         self.config_manager.set_report_template(template_name)
         yield event.plain_result(f"✅ 报告模板已设置为: {template_name}")
 
-    @filter.command("查看模板", alias={"view_templates"})
-    @filter.permission_type(PermissionType.ADMIN)
-    async def view_templates(self, event: AstrMessageEvent):
+    async def view_templates(self, event: PluginMessageEvent):
         """
         查看所有可用的报告模板及预览图（跨平台支持）
         用法: /查看模板
@@ -1419,21 +1308,6 @@ class GroupDailyAnalysis(Star):
             yield event.plain_result("❌ 未找到任何可用的报告模板")
             return
 
-        platform_id = self._get_platform_id_from_event(event)
-        await self.template_preview_router.ensure_handlers_registered(self.context)
-        (
-            handled,
-            handler_results,
-        ) = await self.template_preview_router.handle_view_templates(
-            event=event,
-            platform_id=platform_id,
-            available_templates=available_templates,
-        )
-        if handled:
-            for result in handler_results:
-                yield result
-            return
-
         current_template = self.config_manager.get_report_template()
         bot_id = event.get_self_id()
         preview_nodes = self.template_command_service.build_template_preview_nodes(
@@ -1443,9 +1317,7 @@ class GroupDailyAnalysis(Star):
         )
         yield event.chain_result([preview_nodes])
 
-    @filter.command("分析设置", alias={"analysis_settings"})
-    @filter.permission_type(PermissionType.ADMIN)
-    async def analysis_settings(self, event: AstrMessageEvent, action: str = "status"):
+    async def analysis_settings(self, event: PluginMessageEvent, action: str = "status"):
         """
         管理分析设置（跨平台支持）
         用法: /分析设置 [enable|disable|status|reload|test]
@@ -1573,9 +1445,7 @@ class GroupDailyAnalysis(Star):
 💡 支持的输出格式: image, text (图片包含活跃度可视化)
 💡 其他命令: /设置格式, /增量状态""")
 
-    @filter.command("增量状态", alias={"incremental_status"})
-    @filter.permission_type(PermissionType.ADMIN)
-    async def incremental_status(self, event: AstrMessageEvent):
+    async def incremental_status(self, event: PluginMessageEvent):
         """查看当前增量分析状态（滑动窗口）"""
         group_id = self._get_group_id_from_event(event)
         if not group_id:
@@ -1624,7 +1494,7 @@ class GroupDailyAnalysis(Star):
             f"• 高峰时段: {summary['peak_hours']}"
         )
 
-    async def _handle_settings_enable(self, event: AstrMessageEvent, group_id: str):
+    async def _handle_settings_enable(self, event: PluginMessageEvent, group_id: str):
         """协助逻辑：处理启用设置的分支逻辑"""
         mode = self.config_manager.get_group_list_mode()
         target_id = event.unified_msg_origin or group_id
@@ -1659,7 +1529,7 @@ class GroupDailyAnalysis(Star):
         else:
             yield event.plain_result("ℹ️ 当前为无限制模式，所有群聊默认启用")
 
-    async def _handle_settings_disable(self, event: AstrMessageEvent, group_id: str):
+    async def _handle_settings_disable(self, event: PluginMessageEvent, group_id: str):
         """协助逻辑：处理禁用设置的分支逻辑"""
         mode = self.config_manager.get_group_list_mode()
         target_id = event.unified_msg_origin or group_id

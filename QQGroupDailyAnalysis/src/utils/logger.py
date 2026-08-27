@@ -1,4 +1,4 @@
-from astrbot.api import logger as astrbot_logger
+from gsuid_core.logger import logger as core_logger
 
 from ..infrastructure.logging.plugin_log_buffer import global_log_buffer
 from ..shared.trace_context import TraceContext
@@ -41,37 +41,37 @@ class PluginLogger:
         formatted_msg, trace_id = self._format_msg(msg)
         self._record("INFO", formatted_msg, trace_id, args)
         kwargs["stacklevel"] = kwargs.get("stacklevel", 1) + 1
-        astrbot_logger.info(formatted_msg, *args, **kwargs)
+        core_logger.info(formatted_msg, *args, **kwargs)
 
     def error(self, msg: str, *args, **kwargs):
         formatted_msg, trace_id = self._format_msg(msg)
         self._record("ERROR", formatted_msg, trace_id, args)
         kwargs["stacklevel"] = kwargs.get("stacklevel", 1) + 1
-        astrbot_logger.error(formatted_msg, *args, **kwargs)
+        core_logger.error(formatted_msg, *args, **kwargs)
 
     def warning(self, msg: str, *args, **kwargs):
         formatted_msg, trace_id = self._format_msg(msg)
         self._record("WARNING", formatted_msg, trace_id, args)
         kwargs["stacklevel"] = kwargs.get("stacklevel", 1) + 1
-        astrbot_logger.warning(formatted_msg, *args, **kwargs)
+        core_logger.warning(formatted_msg, *args, **kwargs)
 
     def debug(self, msg: str, *args, **kwargs):
         formatted_msg, trace_id = self._format_msg(msg)
         self._record("DEBUG", formatted_msg, trace_id, args)
         kwargs["stacklevel"] = kwargs.get("stacklevel", 1) + 1
-        astrbot_logger.debug(formatted_msg, *args, **kwargs)
+        core_logger.debug(formatted_msg, *args, **kwargs)
 
     def critical(self, msg: str, *args, **kwargs):
         formatted_msg, trace_id = self._format_msg(msg)
         self._record("CRITICAL", formatted_msg, trace_id, args)
         kwargs["stacklevel"] = kwargs.get("stacklevel", 1) + 1
-        astrbot_logger.critical(formatted_msg, *args, **kwargs)
+        core_logger.critical(formatted_msg, *args, **kwargs)
 
     def exception(self, msg: str, *args, **kwargs):
         formatted_msg, trace_id = self._format_msg(msg)
         self._record("ERROR", formatted_msg, trace_id, args)
         kwargs["stacklevel"] = kwargs.get("stacklevel", 1) + 1
-        astrbot_logger.exception(formatted_msg, *args, **kwargs)
+        core_logger.exception(formatted_msg, *args, **kwargs)
 
 
 # 导出带前缀与缓冲支持的插件统一 logger

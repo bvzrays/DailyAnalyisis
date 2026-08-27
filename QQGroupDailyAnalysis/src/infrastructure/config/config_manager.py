@@ -13,8 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from astrbot.api import AstrBotConfig
-from astrbot.api.star import StarTools
+from ....gscore_runtime import PluginConfig, PluginPaths
 
 from ...shared.constants import PLUGIN_NAME
 from ...utils.logger import logger
@@ -34,7 +33,7 @@ class ConfigManager:
     - prompts: 提示词模板
     """
 
-    def __init__(self, config: AstrBotConfig):
+    def __init__(self, config: PluginConfig):
         self.config = config
         self._migrate_daily_comic_characters()
         self._migrate_daily_comic_character_prompts()
@@ -46,7 +45,7 @@ class ConfigManager:
         current_version = self._get_plugin_version(plugin_root)
         current_schema_fingerprint = self._get_schema_fingerprint(plugin_root)
         state_path = (
-            StarTools.get_data_dir(PLUGIN_NAME) / "upgrade_protection_state.json"
+            PluginPaths.get_data_dir(PLUGIN_NAME) / "upgrade_protection_state.json"
         )
         previous_state = self._read_upgrade_protection_state(state_path)
         previous_version = str(previous_state.get("version", "")).strip()
@@ -171,7 +170,7 @@ class ConfigManager:
             备份写入并完成轮换时返回 True，否则返回 False。
         """
         try:
-            backup_dir = StarTools.get_data_dir(PLUGIN_NAME) / "config_backups"
+            backup_dir = PluginPaths.get_data_dir(PLUGIN_NAME) / "config_backups"
             backup_dir.mkdir(parents=True, exist_ok=True)
             safe_version = re.sub(r"[^A-Za-z0-9._-]", "_", version) or "unknown"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -229,7 +228,7 @@ class ConfigManager:
             "standalone_templates": plugin_root / "data/t2i_templates",
         }
         current_hashes = {}
-        plugin_data_dir = StarTools.get_data_dir(PLUGIN_NAME)
+        plugin_data_dir = PluginPaths.get_data_dir(PLUGIN_NAME)
         for category, template_root in template_roots.items():
             if not template_root.is_dir():
                 continue
@@ -269,7 +268,7 @@ class ConfigManager:
     def get_custom_report_template_dir(self, template_name: str) -> Path | None:
         """获取指定报告模板的用户覆盖目录。"""
         custom_dir = (
-            StarTools.get_data_dir(PLUGIN_NAME)
+            PluginPaths.get_data_dir(PLUGIN_NAME)
             / "custom_t2i_templates/reporting_templates"
             / template_name
         )
@@ -351,7 +350,7 @@ class ConfigManager:
     def _migrate_daily_comic_character_prompts(self) -> None:
         """将旧版全局分镜提示词复制到既有角色方案。"""
         state_path = (
-            StarTools.get_data_dir(PLUGIN_NAME)
+            PluginPaths.get_data_dir(PLUGIN_NAME)
             / "comic_character_prompt_migration.json"
         )
         if state_path.exists():
@@ -388,7 +387,7 @@ class ConfigManager:
             备份写入是否成功。
         """
         try:
-            backup_dir = StarTools.get_data_dir(PLUGIN_NAME) / "config_backups"
+            backup_dir = PluginPaths.get_data_dir(PLUGIN_NAME) / "config_backups"
             backup_dir.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_path = backup_dir / f"comic_character_migration_{timestamp}.json"
@@ -411,7 +410,7 @@ class ConfigManager:
     def _copy_legacy_comic_reference_images(self, references: list[str]) -> list[str]:
         """复制旧参考图到角色模板对应的原生上传目录。
 
-        AstrBot 会校验 file 类型配置的路径前缀。旧字段与模板字段的目录不同，
+        配置中心会校验 file 类型配置的路径前缀。旧字段与模板字段的目录不同，
         因此不能只复用旧路径字符串，否则用户在 WebUI 保存时会校验失败。
 
         Args:
@@ -420,7 +419,7 @@ class ConfigManager:
         Returns:
             可写入新角色方案的参考图相对路径列表。
         """
-        plugin_data_dir = StarTools.get_data_dir(PLUGIN_NAME)
+        plugin_data_dir = PluginPaths.get_data_dir(PLUGIN_NAME)
         relative_dir = Path(
             "files/daily_comic/comic_characters/templates/character/reference_images"
         )
@@ -755,7 +754,7 @@ class ConfigManager:
     def get_html_output_dir(self) -> str:
         """获取HTML输出目录"""
 
-        default_path = StarTools.get_data_dir(PLUGIN_NAME) / "self_hosted_html_reports"
+        default_path = PluginPaths.get_data_dir(PLUGIN_NAME) / "self_hosted_html_reports"
         val = self._get_group("html").get("html_output_dir")
         return val if val else str(default_path)
 
@@ -1382,12 +1381,13 @@ class ConfigManager:
         )
 
     def get_drawing_backend(self) -> str:
-        """获取漫画绘图后端 (builtin/general_plugin/big_banana)。"""
+        """获取漫画绘图后端；GsCore 版本固定使用 builtin。"""
         group = self._get_group("daily_comic")
-        return str(group.get("drawing_backend", "builtin")).strip() or "builtin"
+        backend = str(group.get("drawing_backend", "builtin")).strip() or "builtin"
+        return backend if backend == "builtin" else "builtin"
 
     def get_drawing_external_fallback(self) -> bool:
-        """外部绘图后端失败时是否回退内置后端。"""
+        """读取旧版外部绘图回退配置。"""
         return bool(
             self._get_group("daily_comic").get("drawing_external_fallback", True)
         )
@@ -1613,7 +1613,7 @@ class ConfigManager:
     @staticmethod
     def _get_comic_character_state_path() -> Path:
         """获取每日随机角色状态文件路径。"""
-        return StarTools.get_data_dir(PLUGIN_NAME) / "comic_character_daily_state.json"
+        return PluginPaths.get_data_dir(PLUGIN_NAME) / "comic_character_daily_state.json"
 
     @staticmethod
     def _read_comic_character_state(state_path: Path) -> dict:
@@ -1657,7 +1657,7 @@ class ConfigManager:
         return prompts_config.get(style, "")
 
     def save_config(self):
-        """保存配置到AstrBot配置系统"""
+        """保存插件配置。"""
         try:
             self.config.save_config()
             logger.info("配置已保存")

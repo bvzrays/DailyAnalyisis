@@ -6,15 +6,16 @@ from dataclasses import dataclass
 from gsuid_core.bot import Bot
 from gsuid_core.models import Event, Message
 from gsuid_core.segment import MessageSegment
-from astrbot.api.message_components import Node, Image, Nodes, Plain
+
+from .gscore_runtime import Node, Image, Nodes, Plain, PluginMessageEvent
 
 
 @dataclass
-class CompatResult:
+class PluginResult:
     content: list[object]
 
 
-class GsCoreAstrMessageEvent:
+class GsCoreMessageEvent(PluginMessageEvent):
     def __init__(self, bot: Bot, event: Event) -> None:
         self.gscore_bot = bot
         self.gscore_event = event
@@ -74,11 +75,11 @@ class GsCoreAstrMessageEvent:
     def should_call_llm(self, enabled: bool) -> None:
         return None
 
-    def plain_result(self, text: str) -> CompatResult:
-        return CompatResult([Plain(str(text))])
+    def plain_result(self, text: str) -> PluginResult:
+        return PluginResult([Plain(str(text))])
 
-    def chain_result(self, chain: list[object]) -> CompatResult:
-        return CompatResult(chain)
+    def chain_result(self, chain: list[object]) -> PluginResult:
+        return PluginResult(chain)
 
 
 def _component_to_segments(component: object) -> list[Message]:
@@ -101,7 +102,7 @@ def _component_to_segments(component: object) -> list[Message]:
         for node in component.nodes:
             output.extend(_component_to_segments(node))
         return output
-    if isinstance(component, CompatResult):
+    if isinstance(component, PluginResult):
         output: list[Message] = []
         for item in component.content:
             output.extend(_component_to_segments(item))
@@ -121,11 +122,11 @@ def _component_to_segments(component: object) -> list[Message]:
     return [MessageSegment.text(str(component))]
 
 
-async def send_compat_result(bot: Bot, result: object) -> None:
+async def send_plugin_result(bot: Bot, result: object) -> None:
     segments = _component_to_segments(result)
     if not segments:
         return
     await bot.send(segments)
 
 
-__all__ = ["GsCoreAstrMessageEvent", "send_compat_result"]
+__all__ = ["GsCoreMessageEvent", "send_plugin_result"]

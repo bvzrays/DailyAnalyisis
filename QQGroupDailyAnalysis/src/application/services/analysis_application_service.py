@@ -6,32 +6,32 @@
 
 from __future__ import annotations
 
-import asyncio
-import dataclasses
-import datetime as dt
-import hashlib
 import time as time_mod
+import asyncio
+import hashlib
 import weakref
+import datetime as dt
+import dataclasses
+from typing import Any
+from pathlib import Path
+from contextlib import asynccontextmanager
 from collections import defaultdict
 from collections.abc import Mapping
-from contextlib import asynccontextmanager
-from pathlib import Path
-from typing import Any
 
-from ...domain.entities.incremental_state import IncrementalBatch
+from ...utils.logger import logger
+from ...shared.trace_context import TraceContext
 from ...domain.models.data_models import TokenUsage
-from ...domain.repositories.analysis_repository import IAnalysisProvider
-from ...domain.repositories.report_repository import IReportGenerator
-from ...domain.services.analysis_domain_service import (
-    AnalysisDomainService,
-    UserActivityStats,
-)
-from ...domain.services.incremental_merge_service import IncrementalMergeService
+from ...domain.entities.incremental_state import IncrementalBatch
 from ...domain.services.statistics_service import StatisticsService
 from ...domain.value_objects.unified_message import UnifiedMessage
+from ...domain.repositories.report_repository import IReportGenerator
+from ...domain.repositories.analysis_repository import IAnalysisProvider
+from ...domain.services.analysis_domain_service import (
+    UserActivityStats,
+    AnalysisDomainService,
+)
+from ...domain.services.incremental_merge_service import IncrementalMergeService
 from ...infrastructure.persistence.incremental_store import IncrementalStore
-from ...shared.trace_context import TraceContext
-from ...utils.logger import logger
 
 _LLM_SEMAPHORE_INFO_SECONDS = 1.0
 _LLM_SEMAPHORE_WARN_SECONDS = 15.0
@@ -450,17 +450,9 @@ class AnalysisApplicationService:
                             "top_users": self._serialize_analysis_result(
                                 {"user_titles": top_users}
                             )["user_titles"],
-                            "unified_messages": [
-                                dataclasses.asdict(m)
-                                if dataclasses.is_dataclass(m)
-                                and not isinstance(m, type)
-                                else (
-                                    getattr(m, "to_dict")()
-                                    if callable(getattr(m, "to_dict", None))
-                                    else (m if isinstance(m, dict) else str(m))
-                                )
-                                for m in unified_messages
-                            ],
+                            "unified_messages": self._to_json_compatible(
+                                unified_messages
+                            ),
                         },
                     )
                 except Exception as e:
@@ -574,37 +566,56 @@ class AnalysisApplicationService:
         self, analysis_result: dict[str, Any]
     ) -> dict[str, Any]:
         """将包含领域对象的 analysis_result 序列化为 JSON 友好的 dict 快照。"""
-        import dataclasses
-
-        def _to_dict(obj: Any) -> Any:
-            if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-                return dataclasses.asdict(obj)
-            if isinstance(obj, list):
-                return [_to_dict(item) for item in obj]
-            if isinstance(obj, dict):
-                return {k: _to_dict(v) for k, v in obj.items()}
-            return obj
-
         return {
-            "statistics": _to_dict(analysis_result.get("statistics")),
-            "topics": _to_dict(analysis_result.get("topics", [])),
-            "user_titles": _to_dict(analysis_result.get("user_titles", [])),
-            "user_analysis": _to_dict(analysis_result.get("user_analysis", {})),
-            "chat_quality_review": _to_dict(analysis_result.get("chat_quality_review")),
+            "statistics": self._to_json_compatible(
+                analysis_result.get("statistics")
+            ),
+            "topics": self._to_json_compatible(analysis_result.get("topics", [])),
+            "user_titles": self._to_json_compatible(
+                analysis_result.get("user_titles", [])
+            ),
+            "user_analysis": self._to_json_compatible(
+                analysis_result.get("user_analysis", {})
+            ),
+            "chat_quality_review": self._to_json_compatible(
+                analysis_result.get("chat_quality_review")
+            ),
         }
+
+    @staticmethod
+    def _to_json_compatible(obj: Any) -> Any:
+        """Recursively convert domain values into JSON-compatible primitives."""
+        from enum import Enum
+
+        if isinstance(obj, Enum):
+            return obj.value
+        if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            return AnalysisApplicationService._to_json_compatible(
+                dataclasses.asdict(obj)
+            )
+        if isinstance(obj, Mapping):
+            return {
+                str(key): AnalysisApplicationService._to_json_compatible(value)
+                for key, value in obj.items()
+            }
+        if isinstance(obj, (list, tuple, set)):
+            return [
+                AnalysisApplicationService._to_json_compatible(item) for item in obj
+            ]
+        return obj
 
     def _deserialize_analysis_result(self, data: dict[str, Any]) -> dict[str, Any]:
         """将持久化的 JSON 快照还原为包含领域数据模型的 analysis_result。"""
         from ...domain.models.data_models import (
-            ActivityVisualization,
-            EmojiStatistics,
+            UserTitle,
+            TokenUsage,
             GoldenQuote,
+            SummaryTopic,
+            QualityReview,
+            EmojiStatistics,
             GroupStatistics,
             QualityDimension,
-            QualityReview,
-            SummaryTopic,
-            TokenUsage,
-            UserTitle,
+            ActivityVisualization,
         )
 
         stats_raw = data.get("statistics", {})
@@ -853,8 +864,8 @@ class AnalysisApplicationService:
         template_name: str | None = None,
     ) -> dict[str, Any]:
         """从上一次 Checkpoint 执行幂等断点续跑"""
-        from ...domain.models.data_models import TokenUsage
         from ...shared.trace_context import TraceContext
+        from ...domain.models.data_models import TokenUsage
 
         if not date_str:
             date_str = dt.datetime.now().strftime("%Y-%m-%d")

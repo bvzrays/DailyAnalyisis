@@ -13,7 +13,6 @@ from ...application.services.analysis_application_service import DuplicateGroupT
 from ...shared.trace_context import TraceContext
 from ...utils.logger import logger
 from ..messaging.message_sender import MessageSender
-from ..platform.factory import PlatformAdapterFactory
 from ..reporting.dispatcher import ReportDispatcher
 from .incremental_trigger import IncrementalTriggerCoordinator
 
@@ -199,7 +198,7 @@ class AutoScheduler:
                 hour, minute = t_str.split(":")
 
                 trigger = CronTrigger(hour=int(hour), minute=int(minute))
-                job_id = f"astrbot_plugin_qq_group_daily_analysis_trigger_{i}"
+                job_id = f"qq_group_daily_analysis_trigger_{i}"
 
                 scheduler.add_job(
                     self._run_scheduled_report,
@@ -241,7 +240,7 @@ class AutoScheduler:
         """停止调度器并持久化增量消息计数。
 
         Args:
-            context: AstrBot 插件上下文。
+            context: GsCore 插件上下文。
         """
         self._terminating = True
         immediate_report_tasks = list(self._immediate_report_tasks.values())
@@ -638,7 +637,7 @@ class AutoScheduler:
         """记录一条群消息，用于按消息量触发增量分析。
 
         Args:
-            event: AstrBot 群消息事件。
+            event: GsCore 群消息事件。
 
         Returns:
             消息是否属于启用增量分析的目标群。
@@ -1175,7 +1174,7 @@ class AutoScheduler:
         for platform_id, bot_instance in self.bot_manager._bot_instances.items():
             # 检查该平台是否启用了此插件
             if not self.bot_manager.is_plugin_enabled(
-                platform_id, "astrbot_plugin_qq_group_daily_analysis"
+                platform_id, "QQGroupDailyAnalysis"
             ):
                 logger.debug(f"平台 {platform_id} 未启用此插件，跳过获取群列表")
                 continue
@@ -1184,21 +1183,7 @@ class AutoScheduler:
                 # 1. 优先从 BotManager 获取已创建的适配器
                 adapter = self.bot_manager.get_adapter(platform_id)
 
-                # 2. 如果没有，尝试临时创建（降级方案）
-                platform_name = None
-                if not adapter:
-                    platform_name = self.bot_manager._detect_platform_name(bot_instance)
-                    if platform_name:
-                        adapter = PlatformAdapterFactory.create(
-                            platform_name,
-                            bot_instance,
-                            config={
-                                "bot_self_ids": self.config_manager.get_bot_self_ids(),
-                                "platform_id": str(platform_id),
-                            },
-                        )
-
-                # 3. 使用适配器获取群列表
+                # 2. 使用 GsCore 适配器获取群列表
                 if adapter:
                     try:
                         groups = await adapter.get_group_list()
@@ -1227,7 +1212,7 @@ class AutoScheduler:
                     except Exception as e:
                         logger.warning(f"适配器 {platform_id} 获取群列表失败: {e}")
 
-                # 4. 降级：无法通过适配器获取
+                # 3. 降级：无法通过适配器获取
                 logger.debug(f"平台 {platform_id} 无法通过适配器获取群列表")
 
             except Exception as e:
