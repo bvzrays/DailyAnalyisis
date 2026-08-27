@@ -1,7 +1,7 @@
 from gsuid_core.logger import logger as core_logger
 
-from ..infrastructure.logging.plugin_log_buffer import global_log_buffer
 from ..shared.trace_context import TraceContext
+from ..infrastructure.logging.plugin_log_buffer import global_log_buffer
 
 
 class PluginLogger:
@@ -39,9 +39,9 @@ class PluginLogger:
 
     def info(self, msg: str, *args, **kwargs):
         formatted_msg, trace_id = self._format_msg(msg)
-        self._record("INFO", formatted_msg, trace_id, args)
+        self._record("DEBUG", formatted_msg, trace_id, args)
         kwargs["stacklevel"] = kwargs.get("stacklevel", 1) + 1
-        core_logger.info(formatted_msg, *args, **kwargs)
+        core_logger.debug(formatted_msg, *args, **kwargs)
 
     def error(self, msg: str, *args, **kwargs):
         formatted_msg, trace_id = self._format_msg(msg)
