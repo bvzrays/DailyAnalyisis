@@ -29,6 +29,14 @@ import { useConfigViewModel } from "../pages/config/model/useConfigViewModel";
 
 import { invalidateTraceCache } from "../entities/trace/api/traceApi";
 import { invalidateGroupsCache } from "../entities/group/api/groupApi";
+import { ActiveTask } from "../entities/task/model/types";
+
+const TASK_PROGRESS_EVENTS = new Set(["task_started", "task_progress"]);
+const TASK_TERMINAL_EVENTS = new Set([
+  "task_finished",
+  "task_canceled",
+  "task_timed_out",
+]);
 
 export const App: React.FC = () => {
   const { isDark } = useTheme();
@@ -40,7 +48,7 @@ export const App: React.FC = () => {
   const tracesVM = useTracesViewModel();
   const contextInsightVM = useContextInsightViewModel();
   const reportsVM = useReportsViewModel();
-  const logsVM = useLogsViewModel();
+  const logsVM = useLogsViewModel(activeTab === "logs");
   const configVM = useConfigViewModel(() => {
     handleRefreshAll();
   });
@@ -83,15 +91,25 @@ export const App: React.FC = () => {
   useEffect(() => {
     const unsubscribe = subscribeSSE({
       onMessage: (eventPayload: unknown) => {
-        // 若有具体 task_id 变更，失效该条目的不可变缓存
-        if (eventPayload && typeof eventPayload === "object" && "data" in eventPayload) {
-          const data = (eventPayload as { data?: { task_id?: string } }).data;
-          if (data?.task_id) {
-            invalidateTraceCache(data.task_id);
-          }
-        } else {
-          invalidateTraceCache();
+        if (!eventPayload || typeof eventPayload !== "object") return;
+        const realtimeEvent = eventPayload as {
+          event?: string;
+          data?: Partial<ActiveTask> & { task_id?: string };
+        };
+        const eventName = realtimeEvent.event || "";
+        if (!TASK_PROGRESS_EVENTS.has(eventName) && !TASK_TERMINAL_EVENTS.has(eventName)) {
+          return;
         }
+
+        const taskId = realtimeEvent.data?.task_id;
+        if (taskId) invalidateTraceCache(taskId);
+
+        if (TASK_PROGRESS_EVENTS.has(eventName)) {
+          overviewVM.upsertActiveTask(realtimeEvent.data as ActiveTask);
+          return;
+        }
+
+        if (taskId) overviewVM.removeActiveTask(taskId);
         invalidateGroupsCache();
         overviewVM.refresh(true);
         tracesVM.refresh(true);

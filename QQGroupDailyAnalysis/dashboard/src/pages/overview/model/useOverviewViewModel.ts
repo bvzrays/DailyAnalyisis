@@ -22,6 +22,23 @@ export function useOverviewViewModel() {
   const [loading, setLoading] = useState(false);
   const hasLoadedOnce = useRef(false);
 
+  const upsertActiveTask = useCallback((task: ActiveTask) => {
+    if (!task?.task_id) return;
+    setActiveTasks((currentTasks) => {
+      const exists = currentTasks.some((item) => item.task_id === task.task_id);
+      if (!exists) return [...currentTasks, task];
+      return currentTasks.map((item) =>
+        item.task_id === task.task_id ? { ...item, ...task } : item
+      );
+    });
+  }, []);
+
+  const removeActiveTask = useCallback((taskId: string) => {
+    setActiveTasks((currentTasks) =>
+      currentTasks.filter((task) => task.task_id !== taskId)
+    );
+  }, []);
+
   const loadData = useCallback(async (silent = false) => {
     if (!silent && !hasLoadedOnce.current) {
       setLoading(true);
@@ -66,6 +83,8 @@ export function useOverviewViewModel() {
     activeTasks,
     loading,
     refresh: (silent = true) => loadData(silent),
+    upsertActiveTask,
+    removeActiveTask,
     handleCancelTask,
   };
 }

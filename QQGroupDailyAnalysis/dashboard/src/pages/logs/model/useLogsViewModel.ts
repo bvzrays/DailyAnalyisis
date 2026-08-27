@@ -7,7 +7,7 @@ import {
 } from "../../../entities/log/api/logApi";
 import { AvailableTag, PluginLogItem } from "../../../entities/log/model/types";
 
-export function useLogsViewModel() {
+export function useLogsViewModel(isActive = true) {
   const [logs, setLogs] = useState<PluginLogItem[]>([]);
   const [total, setTotal] = useState(0);
   const [availableTags, setAvailableTags] = useState<AvailableTag[]>([]);
@@ -57,12 +57,14 @@ export function useLogsViewModel() {
 
   // 初始与条件变化加载
   useEffect(() => {
+    if (!isActive) return;
     loadLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, level, tag, traceId]);
+  }, [isActive, search, level, tag, traceId]);
 
   // SSE 实时推流：收到后端 log_entry 毫秒级直接上屏
   useEffect(() => {
+    if (!isActive) return;
     const unsubscribe = subscribeSSE({
       onMessage: (eventPayload: unknown) => {
         if (!autoRefresh) return;
@@ -101,18 +103,18 @@ export function useLogsViewModel() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [autoRefresh, level, tag, traceId, search]);
+  }, [isActive, autoRefresh, level, tag, traceId, search]);
 
-  // 兜底轮询 (每 5 秒同步一次全量指标与未连接状态)
+  // 兜底轮询：仅日志页可见时每 30 秒同步一次，避免后台标签制造访问日志。
   useEffect(() => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
-    if (autoRefresh) {
+    if (isActive && autoRefresh && !document.hidden) {
       pollRef.current = setInterval(() => {
-        loadLogs(true);
-      }, 5000);
+        if (!document.hidden) loadLogs(true);
+      }, 30000);
     }
     return () => {
       if (pollRef.current) {
@@ -121,7 +123,7 @@ export function useLogsViewModel() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh, search, level, tag, traceId]);
+  }, [isActive, autoRefresh, search, level, tag, traceId]);
 
   return {
     logs,

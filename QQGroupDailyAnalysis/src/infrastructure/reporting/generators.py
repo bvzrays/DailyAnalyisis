@@ -1477,15 +1477,22 @@ class ReportGenerator(IReportGenerator):
 
             # 胶囊样式 (Capsule Style) - 统一使用
             capsule_style = (
-                "display:inline-flex;align-items:center;background:rgba(0,0,0,0.05);"
+                "display:inline-flex!important;flex-direction:row!important;"
+                "flex-wrap:nowrap!important;align-items:center;white-space:nowrap;"
+                "width:auto!important;max-width:100%;background:rgba(0,0,0,0.05);"
                 "padding:2px 6px 2px 2px;border-radius:12px;margin:0 2px;"
-                "vertical-align:middle;border:1px solid rgba(0,0,0,0.1);text-decoration:none;"
+                "vertical-align:middle;border:1px solid rgba(0,0,0,0.1);"
+                "text-decoration:none;line-height:1;"
             )
             img_style = (
                 "width:18px;height:18px;border-radius:50%;"
-                f"margin-right:{'0' if hide_user_names else '4px'};display:block;"
+                f"margin-right:{'0' if hide_user_names else '4px'};"
+                "display:inline-block!important;vertical-align:middle;flex:0 0 18px;"
             )
-            name_style = "font-size:0.85em;color:inherit;font-weight:500;line-height:1;"
+            name_style = (
+                "display:inline-block!important;font-size:0.85em;color:inherit;"
+                "font-weight:500;line-height:1;white-space:nowrap;"
+            )
 
             # 3. 最终后备: 确保有头像和名称
             final_url = url if url else self._get_default_avatar_base64()

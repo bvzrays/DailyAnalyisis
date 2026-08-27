@@ -143,7 +143,10 @@ class GsCorePlatformAdapter(PlatformAdapter):
             or event.user_id
         )
         sender_card = str(event.sender.get("card") or "") or None
-        message_id = str(event.msg_id or f"{event.user_id}-{time.time_ns()}")
+        message_id = str(event.msg_id or "").strip()
+        if not message_id or message_id == str(event.group_id):
+            fallback_source = str(event.task_id or event.user_id or "event").strip()
+            message_id = f"generated-{fallback_source}-{time.time_ns()}"
         timestamp = int(event.sender.get("timestamp") or time.time())
         group_name = str(event.sender.get("group_name") or event.group_id)
         payload = [self._content_to_dict(content) for content in contents]
