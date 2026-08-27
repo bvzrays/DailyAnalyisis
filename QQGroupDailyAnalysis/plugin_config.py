@@ -187,6 +187,7 @@ gsconfig = StringConfig(
     GSCORE_CONFIG_PATH,
     _build_gscore_config(_SCHEMA),
 )
+gsconfig.plugin_name = "QQGroupDailyAnalysis"
 
 
 def _migrate_legacy_gscore_config() -> None:

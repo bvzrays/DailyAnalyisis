@@ -143,7 +143,7 @@ uv run core
 完整配置入口：
 
 - GsCore WebConsole：插件配置 → `QQGroupDailyAnalysis`
-- 插件 WebUI：`http://localhost:8765/qq-group-daily-analysis/`
+- 插件 WebUI：`http://localhost:8765/qq-group-daily-analysis-gscore/`
 - 本地数据：`data/QQGroupDailyAnalysis/config.json`
 
 配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
@@ -177,7 +177,7 @@ API Key 仅应保存在本机 `data/ai_core/openai_config/`，不要提交到插
 默认 GsCore 端口为 `8765`，插件页面地址：
 
 ```text
-http://localhost:8765/qq-group-daily-analysis/
+http://localhost:8765/qq-group-daily-analysis-gscore/
 ```
 
 API 前缀：
