@@ -1,9 +1,28 @@
 import asyncio
+import re
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 from src.infrastructure.reporting.dispatcher import ReportDispatcher
 from src.infrastructure.scheduler.auto_scheduler import AutoScheduler
+
+
+def test_scrapbook_templates_do_not_contain_empty_image_sources():
+    template_dir = (
+        Path(__file__).resolve().parents[1]
+        / "QQGroupDailyAnalysis"
+        / "src"
+        / "infrastructure"
+        / "reporting"
+        / "templates"
+        / "scrapbook"
+    )
+    empty_src = re.compile(r"<img\b[^>]*\bsrc\s*=\s*(['\"])\s*\1", re.IGNORECASE)
+
+    for template_name in ("image_template.html", "html_template.html"):
+        template = (template_dir / template_name).read_text(encoding="utf-8")
+        assert empty_src.search(template) is None
 
 
 def test_dispatch_returns_false_when_no_report_format_is_sent():
