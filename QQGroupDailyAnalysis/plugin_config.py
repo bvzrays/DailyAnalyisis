@@ -16,7 +16,7 @@ from gsuid_core.utils.plugins_config.models import (
     GsFloatConfig,
     GsListStrConfig,
 )
-from gsuid_core.utils.plugins_config.gs_config import StringConfig
+from gsuid_core.utils.plugins_config.gs_config import StringConfig, all_config_list
 
 from .gscore_runtime import PluginPaths, PluginConfig
 
@@ -25,7 +25,24 @@ DATA_DIR = get_res_path() / "QQGroupDailyAnalysis"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_PATH = DATA_DIR / "config.json"
 GSCORE_CONFIG_PATH = DATA_DIR / "gscore_config.json"
+GSCORE_CONFIG_DIR = DATA_DIR / "gscore_configs"
+GSCORE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 PluginPaths.set_data_dir(DATA_DIR)
+
+_GROUP_CONFIG_NAMES = {
+    "basic": "群分析·基础设置",
+    "qq_official": "群分析·QQ官方",
+    "t2i_rendering": "群分析·图片渲染",
+    "auto_analysis": "群分析·定时分析",
+    "llm": "群分析·LLM设置",
+    "analysis_features": "群分析·分析功能",
+    "daily_comic": "群分析·每日漫画",
+    "incremental": "群分析·增量分析",
+    "html": "群分析·HTML设置",
+    "qq_group_upload": "群分析·群文件上传",
+    "prompts": "群分析·提示词",
+    "performance": "群分析·并发限流",
+}
 
 
 def _schema_default(item: object) -> object:
@@ -147,25 +164,17 @@ def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
     )
 
 
-def _build_gscore_config(schema: dict) -> dict[str, GSC]:
+def _build_gscore_group(group_key: str, group: dict) -> dict[str, GSC]:
+    group_title = str(group.get("description") or group_key)
     config: dict[str, GSC] = {
-        "Enabled": GsBoolConfig(
-            title="启用群日常分析",
-            desc="关闭后停止命令、消息归档、定时分析和增量分析。",
-            data=True,
-        )
-    }
-    for group_key, group in schema.items():
-        if not isinstance(group, dict):
-            continue
-        group_title = str(group.get("description") or group_key)
-        config[f"__group__.{group_key}"] = GsDivider(
+        f"__group__.{group_key}": GsDivider(
             title=group_title,
             desc=str(group.get("hint", "")),
             data=group_title,
         )
-        for path, spec in _iter_schema_fields({group_key: group}):
-            config[".".join(path)] = _make_gscore_field(path, spec)
+    }
+    for path, spec in _iter_schema_fields({group_key: group}):
+        config[".".join(path)] = _make_gscore_field(path, spec)
     return config
 
 
@@ -177,17 +186,58 @@ _STRUCTURED_PATHS = {
     for path, spec in _SCHEMA_FIELDS
     if spec.get("type") in {"file", "template_list"}
 }
-_GSCORE_CONFIG_EXISTED = GSCORE_CONFIG_PATH.exists()
-_GSCORE_CONFIG_MTIME = (
-    GSCORE_CONFIG_PATH.stat().st_mtime_ns if _GSCORE_CONFIG_EXISTED else 0
+_GROUP_CONFIG_PATHS = {
+    group_key: GSCORE_CONFIG_DIR / f"{group_key}.json"
+    for group_key, group in _SCHEMA.items()
+    if isinstance(group, dict)
+}
+_existing_gscore_paths = [
+    path
+    for path in (GSCORE_CONFIG_PATH, *_GROUP_CONFIG_PATHS.values())
+    if path.exists()
+]
+_GSCORE_CONFIG_EXISTED = bool(_existing_gscore_paths)
+_GSCORE_CONFIG_MTIME = max(
+    (path.stat().st_mtime_ns for path in _existing_gscore_paths),
+    default=0,
 )
 
+_config_names = {"群分析·总览", *_GROUP_CONFIG_NAMES.values()}
+for _config_name, _registered_config in tuple(all_config_list.items()):
+    if (
+        getattr(_registered_config, "plugin_name", None) == "QQGroupDailyAnalysis"
+        and _config_name not in _config_names
+    ):
+        all_config_list.pop(_config_name, None)
+
 gsconfig = StringConfig(
-    "QQGroupDailyAnalysis",
+    "群分析·总览",
     GSCORE_CONFIG_PATH,
-    _build_gscore_config(_SCHEMA),
+    {
+        "Enabled": GsBoolConfig(
+            title="启用群日常分析",
+            desc="关闭后停止命令、消息归档、定时分析和增量分析。",
+            data=True,
+        )
+    },
 )
 gsconfig.plugin_name = "QQGroupDailyAnalysis"
+
+group_configs: dict[str, StringConfig] = {}
+for _group_key, _group in _SCHEMA.items():
+    if not isinstance(_group, dict):
+        continue
+    _group_config = StringConfig(
+        _GROUP_CONFIG_NAMES.get(_group_key, f"群分析·{_group_key}"),
+        _GROUP_CONFIG_PATHS[_group_key],
+        _build_gscore_group(_group_key, _group),
+    )
+    _group_config.plugin_name = "QQGroupDailyAnalysis"
+    group_configs[_group_key] = _group_config
+
+
+def _config_for_path(path: tuple[str, ...]) -> StringConfig:
+    return group_configs[path[0]]
 
 
 def _migrate_legacy_gscore_config() -> None:
@@ -200,20 +250,26 @@ def _migrate_legacy_gscore_config() -> None:
         "ScheduleTimes": "auto_analysis.auto_analysis_time",
     }
     changed = False
+    for group_config in group_configs.values():
+        group_config.migrate_from(gsconfig)
     for old_key, new_key in legacy_mapping.items():
-        if old_key not in gsconfig.config or new_key not in gsconfig.config:
+        target_config = _config_for_path(tuple(new_key.split(".")))
+        if old_key not in gsconfig.config or new_key not in target_config.config:
             continue
         _assign_gscore_value(
-            gsconfig.config[new_key],
+            target_config.config[new_key],
             deepcopy(gsconfig.config[old_key].data),
         )
+        target_config.write_config()
         gsconfig.config.pop(old_key)
         changed = True
-    if "ConfigFile" in gsconfig.config:
-        gsconfig.config.pop("ConfigFile")
+    stale_keys = [key for key in gsconfig.config if key != "Enabled"]
+    if stale_keys:
+        for key in stale_keys:
+            gsconfig.config.pop(key)
         changed = True
     if changed:
-        gsconfig.write_config()
+        gsconfig.sort_config()
 
 
 def _get_nested(data: dict, path: tuple[str, ...]) -> object:
@@ -287,25 +343,28 @@ def _assign_gscore_value(field: GSC, value: object) -> bool:
 
 
 def _sync_gscore_from_config(data: dict) -> None:
-    changed = False
+    changed_configs: dict[str, StringConfig] = {}
     for path, spec in _SCHEMA_FIELDS:
         key = ".".join(path)
-        if key not in gsconfig.config:
+        group_config = _config_for_path(path)
+        if key not in group_config.config:
             continue
         value = _to_gscore_value(path, _get_nested(data, path), spec)
-        field = gsconfig.config[key]
+        field = group_config.config[key]
         if field.data != value:
-            changed = _assign_gscore_value(field, value) or changed
-    if changed:
-        gsconfig.write_config()
+            if _assign_gscore_value(field, value):
+                changed_configs[group_config.config_name] = group_config
+    for group_config in changed_configs.values():
+        group_config.write_config()
 
 
 def _apply_gscore_to_config(data: dict) -> None:
     for path, _spec in _SCHEMA_FIELDS:
         key = ".".join(path)
-        if key not in gsconfig.config:
+        group_config = _config_for_path(path)
+        if key not in group_config.config:
             continue
-        value = _from_gscore_value(path, gsconfig.config[key].data)
+        value = _from_gscore_value(path, group_config.config[key].data)
         if value is not None:
             _set_nested(data, path, value)
 
@@ -341,6 +400,7 @@ __all__ = [
     "CONFIG_PATH",
     "DATA_DIR",
     "GSCORE_CONFIG_PATH",
+    "group_configs",
     "gsconfig",
     "load_config",
     "load_schema",

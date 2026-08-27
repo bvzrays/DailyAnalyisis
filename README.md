@@ -146,7 +146,7 @@ uv run core
 - 插件 WebUI：`http://localhost:8765/qq-group-daily-analysis-gscore/`
 - 本地数据：`data/QQGroupDailyAnalysis/config.json`
 
-配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
+WebConsole 参数区按“总览、基础设置、QQ 官方、图片渲染、定时分析、LLM、分析功能、每日漫画、增量分析、HTML、群文件上传、提示词、并发限流”拆分为 13 个原生配置标签，不需要在单一长表单中查找。配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
 
 ## 丨AI 配置
 
@@ -193,7 +193,8 @@ API 前缀：
 运行数据全部位于 GsCore 的 `data/QQGroupDailyAnalysis/`：
 
 - `config.json`：完整插件配置
-- `gscore_config.json`：GsCore 配置中心镜像
+- `gscore_config.json`：GsCore 配置中心总开关镜像
+- `gscore_configs/`：按功能分组的 GsCore 配置中心镜像
 - `messages.db`：跨平台群消息存档
 - `traces.db`：分析链路与消耗记录
 - `reports/`、`tmp/`、`avatar/`：报告、临时文件与头像缓存
