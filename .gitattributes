@@ -1,0 +1,15 @@
+### 模板预览图 — 仅用于文档/仓库展示，插件运行时不需要
+assets/*.jpg     export-ignore
+assets/*.png     export-ignore
+
+### CI/CD 工作流 — 插件打包时不需要
+.github/         export-ignore
+
+### 设计文档 — 运行时不需要
+docs/            export-ignore
+
+### 发布/调试脚本 — 终端用户不需要
+scripts/         export-ignore
+
+### 测试文件 — 生产包不需要
+tests/           export-ignore

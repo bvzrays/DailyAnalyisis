@@ -1,0 +1,346 @@
+from __future__ import annotations
+
+import json
+from copy import deepcopy
+from pathlib import Path
+from collections.abc import Iterator
+
+from astrbot.api import AstrBotConfig
+from astrbot.api.star import StarTools
+from gsuid_core.logger import logger
+from gsuid_core.data_store import get_res_path
+from gsuid_core.utils.plugins_config.models import (
+    GSC,
+    GsDivider,
+    GsIntConfig,
+    GsStrConfig,
+    GsBoolConfig,
+    GsFloatConfig,
+    GsListStrConfig,
+)
+from gsuid_core.utils.plugins_config.gs_config import StringConfig
+
+PLUGIN_ROOT = Path(__file__).resolve().parent
+DATA_DIR = get_res_path() / "QQGroupDailyAnalysis"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_PATH = DATA_DIR / "config.json"
+GSCORE_CONFIG_PATH = DATA_DIR / "gscore_config.json"
+StarTools.set_data_dir(DATA_DIR)
+
+
+def _schema_default(item: object) -> object:
+    if not isinstance(item, dict):
+        return deepcopy(item)
+    if "default" in item:
+        return deepcopy(item["default"])
+    children = item.get("items")
+    if item.get("type") == "object" and isinstance(children, dict):
+        return {key: _schema_default(value) for key, value in children.items()}
+    return {}
+
+
+def load_schema() -> dict:
+    data = json.loads((PLUGIN_ROOT / "_conf_schema.json").read_text(encoding="utf-8-sig"))
+    return data if isinstance(data, dict) else {}
+
+
+def default_config() -> dict:
+    return {key: _schema_default(value) for key, value in load_schema().items()}
+
+
+def _merge_defaults(current: object, defaults: object) -> object:
+    if not isinstance(defaults, dict):
+        return deepcopy(current) if current is not None else deepcopy(defaults)
+    source = current if isinstance(current, dict) else {}
+    merged = {key: _merge_defaults(source.get(key), value) for key, value in defaults.items()}
+    for key, value in source.items():
+        if key not in merged:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def _iter_schema_fields(
+    schema: dict,
+    prefix: tuple[str, ...] = (),
+) -> Iterator[tuple[tuple[str, ...], dict]]:
+    for key, value in schema.items():
+        if not isinstance(value, dict):
+            continue
+        path = (*prefix, key)
+        children = value.get("items")
+        if value.get("type") == "object" and isinstance(children, dict):
+            yield from _iter_schema_fields(children, path)
+        else:
+            yield path, value
+
+
+def _description(spec: dict) -> str:
+    description = str(spec.get("description", "")).strip()
+    hint = str(spec.get("hint", "")).strip()
+    return "\n".join(part for part in (description, hint) if part)
+
+
+def _string_details(path: tuple[str, ...], spec: dict) -> dict:
+    return {
+        "schema_path": ".".join(path),
+        "schema_type": str(spec.get("type", "string")),
+        "multiline": spec.get("type") == "text",
+        "json": spec.get("type") in {"file", "template_list"},
+    }
+
+
+def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
+    title = str(spec.get("description") or path[-1])
+    description = _description(spec)
+    default = deepcopy(spec.get("default"))
+    field_type = spec.get("type")
+    options = spec.get("options")
+    slider_value = spec.get("slider")
+    slider = slider_value if isinstance(slider_value, dict) else {}
+
+    if field_type == "bool":
+        return GsBoolConfig(title=title, desc=description, data=bool(default))
+    if field_type == "int":
+        int_options = [int(value) for value in options] if isinstance(options, list) else []
+        maximum = slider.get("max")
+        return GsIntConfig(
+            title=title,
+            desc=description,
+            data=int(default or 0),
+            max_value=int(maximum) if isinstance(maximum, (int, float)) else None,
+            options=int_options,
+        )
+    if field_type == "float":
+        minimum = slider.get("min")
+        maximum = slider.get("max")
+        return GsFloatConfig(
+            title=title,
+            desc=description,
+            data=float(default or 0),
+            min_value=float(minimum) if isinstance(minimum, (int, float)) else None,
+            max_value=float(maximum) if isinstance(maximum, (int, float)) else None,
+        )
+    if field_type == "list":
+        values = [str(value) for value in default] if isinstance(default, list) else []
+        string_options = [str(value) for value in options] if isinstance(options, list) else []
+        return GsListStrConfig(
+            title=title,
+            desc=description,
+            data=values,
+            options=string_options,
+        )
+    if field_type in {"file", "template_list"}:
+        encoded = json.dumps(default, ensure_ascii=False, indent=2)
+        return GsStrConfig(
+            title=title,
+            desc=f"{description}\n请使用 JSON 格式编辑。".strip(),
+            data=encoded,
+            details=_string_details(path, spec),
+        )
+    string_options = [str(value) for value in options] if isinstance(options, list) else []
+    return GsStrConfig(
+        title=title,
+        desc=description,
+        data=str(default or ""),
+        options=string_options,
+        details=_string_details(path, spec),
+    )
+
+
+def _build_gscore_config(schema: dict) -> dict[str, GSC]:
+    config: dict[str, GSC] = {
+        "Enabled": GsBoolConfig(
+            title="启用群日常分析",
+            desc="关闭后停止命令、消息归档、定时分析和增量分析。",
+            data=True,
+        )
+    }
+    for group_key, group in schema.items():
+        if not isinstance(group, dict):
+            continue
+        group_title = str(group.get("description") or group_key)
+        config[f"__group__.{group_key}"] = GsDivider(
+            title=group_title,
+            desc=str(group.get("hint", "")),
+            data=group_title,
+        )
+        for path, spec in _iter_schema_fields({group_key: group}):
+            config[".".join(path)] = _make_gscore_field(path, spec)
+    return config
+
+
+_SCHEMA = load_schema()
+_DEFAULTS = default_config()
+_SCHEMA_FIELDS = tuple(_iter_schema_fields(_SCHEMA))
+_STRUCTURED_PATHS = {
+    ".".join(path)
+    for path, spec in _SCHEMA_FIELDS
+    if spec.get("type") in {"file", "template_list"}
+}
+_GSCORE_CONFIG_EXISTED = GSCORE_CONFIG_PATH.exists()
+_GSCORE_CONFIG_MTIME = (
+    GSCORE_CONFIG_PATH.stat().st_mtime_ns if _GSCORE_CONFIG_EXISTED else 0
+)
+
+gsconfig = StringConfig(
+    "QQGroupDailyAnalysis",
+    GSCORE_CONFIG_PATH,
+    _build_gscore_config(_SCHEMA),
+)
+
+
+def _migrate_legacy_gscore_config() -> None:
+    legacy_mapping = {
+        "DefaultDays": "basic.analysis_days",
+        "MaxMessages": "basic.max_messages",
+        "MinMessages": "basic.min_messages_threshold",
+        "OutputFormats": "basic.output_format",
+        "LLMProvider": "llm.llm_provider_id",
+        "ScheduleTimes": "auto_analysis.auto_analysis_time",
+    }
+    changed = False
+    for old_key, new_key in legacy_mapping.items():
+        if old_key not in gsconfig.config or new_key not in gsconfig.config:
+            continue
+        _assign_gscore_value(
+            gsconfig.config[new_key],
+            deepcopy(gsconfig.config[old_key].data),
+        )
+        gsconfig.config.pop(old_key)
+        changed = True
+    if "ConfigFile" in gsconfig.config:
+        gsconfig.config.pop("ConfigFile")
+        changed = True
+    if changed:
+        gsconfig.write_config()
+
+
+def _get_nested(data: dict, path: tuple[str, ...]) -> object:
+    current: object = data
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
+
+def _set_nested(data: dict, path: tuple[str, ...], value: object) -> None:
+    current = data
+    for key in path[:-1]:
+        child = current.get(key)
+        if not isinstance(child, dict):
+            child = {}
+            current[key] = child
+        current = child
+    current[path[-1]] = deepcopy(value)
+
+
+def _to_gscore_value(path: tuple[str, ...], value: object, spec: dict) -> object:
+    field_type = spec.get("type")
+    if ".".join(path) in _STRUCTURED_PATHS:
+        return json.dumps(value, ensure_ascii=False, indent=2)
+    if field_type == "list":
+        return [str(item) for item in value] if isinstance(value, list) else []
+    if field_type == "bool":
+        return bool(value)
+    if field_type == "int":
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        return 0
+    if field_type == "float":
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+        return 0.0
+    return str(value or "")
+
+
+def _from_gscore_value(path: tuple[str, ...], value: object) -> object:
+    if ".".join(path) not in _STRUCTURED_PATHS:
+        return deepcopy(value)
+    try:
+        return json.loads(str(value))
+    except json.JSONDecodeError:
+        logger.warning("QQGroupDailyAnalysis 配置 %s 不是有效 JSON，已保留原值", ".".join(path))
+        return None
+
+
+def _assign_gscore_value(field: GSC, value: object) -> bool:
+    if isinstance(field, GsBoolConfig) and isinstance(value, bool):
+        field.data = value
+        return True
+    if isinstance(field, GsIntConfig) and isinstance(value, int) and not isinstance(value, bool):
+        field.data = value
+        return True
+    if isinstance(field, GsFloatConfig) and isinstance(value, (int, float)) and not isinstance(value, bool):
+        field.data = float(value)
+        return True
+    if isinstance(field, GsListStrConfig) and isinstance(value, list):
+        field.data = [str(item) for item in value]
+        return True
+    if isinstance(field, GsStrConfig) and isinstance(value, str):
+        field.data = value
+        return True
+    return False
+
+
+def _sync_gscore_from_config(data: dict) -> None:
+    changed = False
+    for path, spec in _SCHEMA_FIELDS:
+        key = ".".join(path)
+        if key not in gsconfig.config:
+            continue
+        value = _to_gscore_value(path, _get_nested(data, path), spec)
+        field = gsconfig.config[key]
+        if field.data != value:
+            changed = _assign_gscore_value(field, value) or changed
+    if changed:
+        gsconfig.write_config()
+
+
+def _apply_gscore_to_config(data: dict) -> None:
+    for path, _spec in _SCHEMA_FIELDS:
+        key = ".".join(path)
+        if key not in gsconfig.config:
+            continue
+        value = _from_gscore_value(path, gsconfig.config[key].data)
+        if value is not None:
+            _set_nested(data, path, value)
+
+
+def _write_config(data: dict) -> None:
+    temporary = CONFIG_PATH.with_suffix(".tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(CONFIG_PATH)
+    _sync_gscore_from_config(data)
+
+
+def load_config() -> AstrBotConfig:
+    config_exists = CONFIG_PATH.exists()
+    config_mtime = CONFIG_PATH.stat().st_mtime_ns if config_exists else 0
+    try:
+        raw = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        raw = {}
+    merged = _merge_defaults(raw, _DEFAULTS)
+    assert isinstance(merged, dict)
+    if _GSCORE_CONFIG_EXISTED and _GSCORE_CONFIG_MTIME > config_mtime:
+        _apply_gscore_to_config(merged)
+    else:
+        _sync_gscore_from_config(merged)
+    _write_config(merged)
+    return AstrBotConfig(merged, save_callback=_write_config)
+
+
+_migrate_legacy_gscore_config()
+
+
+__all__ = [
+    "CONFIG_PATH",
+    "DATA_DIR",
+    "GSCORE_CONFIG_PATH",
+    "gsconfig",
+    "load_config",
+    "load_schema",
+]

@@ -1,0 +1,1 @@
+"""GsCore plugin package marker."""

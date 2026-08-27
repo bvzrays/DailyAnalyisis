@@ -1,0 +1,32 @@
+target-version = "py311"
+line-length = 120
+extend-exclude = [
+  ".git",
+  ".venv",
+  "__pycache__",
+  "build",
+  "dist",
+  "pyproject.toml",
+  "**/*.toml",
+  "tests",
+  "QQGroupDailyAnalysis/dashboard",
+  "QQGroupDailyAnalysis/pages",
+  "QQGroupDailyAnalysis/scripts",
+  "QQGroupDailyAnalysis/src",
+  "QQGroupDailyAnalysis/legacy_main.py",
+]
+
+[lint]
+select = ["E", "F", "I", "W"]
+
+[lint.isort]
+combine-as-imports = true
+length-sort = true
+known-first-party = ["gsuid_core", "QQGroupDailyAnalysis"]
+section-order = [
+  "future",
+  "standard-library",
+  "third-party",
+  "first-party",
+  "local-folder",
+]

@@ -1,0 +1,43 @@
+﻿<div class="card-common miku-chat-quality" style="padding: 30px;">
+        <div class="miku-chat-quality-head" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; border-bottom: 2px dashed var(--miku-blue); padding-bottom: 15px;">
+            <div style="font-family: var(--font-title); font-size: 1.6rem; color: var(--miku-dark);">{{ title }}</div>
+            <div style="font-family: var(--font-num); color: var(--text-sub); background: var(--miku-blue); padding: 4px 12px; border-radius: 20px; font-size: 0.9rem;">{{ subtitle }}</div>
+        </div>
+
+        <div style="height: 14px; background: var(--bg-page-base); border-radius: 7px; display: flex; overflow: hidden; margin-bottom: 30px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+            {% set colors = ['var(--miku-base)', 'var(--miku-pink-light)', 'var(--miku-light)', 'var(--miku-yellow)', '#80CBC4'] %}
+            {% for dim in dimensions %}
+            <div style="width: {{ dim.percentage }}%; background: {{ colors[loop.index0 % colors|length] }};"></div>
+            {% endfor %}
+        </div>
+
+        <div class="miku-quality-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 30px;">
+            {% for dim in dimensions %}
+            <div style="background: var(--bg-page-base); padding: 12px 15px; border-radius: 10px; display: flex; align-items: flex-start; gap: 10px;">
+                <div style="width: 10px; height: 10px; border-radius: 50%; background: {{ colors[loop.index0 % colors|length] }}; margin-top: 5px; flex-shrink: 0;"></div>
+                <div>
+                    <div style="font-weight: bold; font-size: 0.9rem; color: var(--text-main); margin-bottom: 4px;">{{ dim.name }} ({{ '%.1f'|format(dim.percentage|float) }}%)</div>
+                    <div style="font-size: 0.85rem; color: var(--text-sub); line-height: 1.5;">{{ dim.comment }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="miku-quality-summary" style="background: linear-gradient(135deg, var(--miku-dark) 0%, var(--miku-base) 100%); color: white; padding: 25px; border-radius: 12px; position: relative; box-shadow: 0 4px 15px rgba(57, 197, 187, 0.2); display: flex; align-items: flex-end; justify-content: space-between;">
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                    <svg viewBox="0 0 24 24" stroke="white" stroke-width="2" fill="none" style="width: 20px; height: 20px;">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                        <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+                        <line x1="12" x2="12" y1="19" y2="22"/>
+                    </svg>                    <span style="font-weight: bold; font-size: 1.1rem;">Miku 综合点评</span>
+                </div>
+                <div style="line-height: 1.8; font-size: 1rem; opacity: 0.95;">{{ summary }}</div>
+            </div>
+            <div class="miku-quality-deco" style="height: 100px; margin-left: 20px; flex-shrink: 0; display: flex; align-items: flex-end;">
+                <!-- 占位符：Chat Quality 小人 -->
+                <img src="https://img.heliar.top/file/1778303907562_retouch_2026032810150449.png" alt="Quality Deco" style="height: 100%; width: auto; max-width: 150px; border: none; outline: none; background: transparent; object-fit: contain;">
+            </div>
+        </div>
+    </div>
+

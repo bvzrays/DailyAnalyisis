@@ -1,0 +1,41 @@
+.kilocode/
+.kiro/
+.serena/
+.sisyphus/
+.ace-tool/
+.tmp_refs/
+
+# Python caches
+**/__pycache__
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv-cache/
+.coverage
+htmlcov/
+
+# Debug files & test outputs
+debug_*.html
+test_*.html
+scripts/output/
+scripts/output_all/
+data/debug_data/
+data/test/
+
+# Frontend & Node
+dashboard/node_modules/
+dashboard/.pnpm-store/
+node_modules/
+dist/
+
+# Persistence & temporary test data
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+traces.db
+tmp/
+tmp/reports/report_**_test_dispatch_span_**.jpg

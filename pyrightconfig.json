@@ -1,0 +1,28 @@
+{
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic",
+  "include": [
+    "__init__.py",
+    "QQGroupDailyAnalysis/__init__.py",
+    "QQGroupDailyAnalysis/event_bridge.py",
+    "QQGroupDailyAnalysis/plugin_config.py",
+    "QQGroupDailyAnalysis/runtime.py",
+    "QQGroupDailyAnalysis/webui_static.py",
+    "astrbot"
+  ],
+  "venvPath": "../gsuid_core",
+  "venv": ".venv",
+  "extraPaths": [
+    ".",
+    "QQGroupDailyAnalysis",
+    "../gsuid_core"
+  ],
+  "exclude": [
+    "QQGroupDailyAnalysis/legacy_main.py",
+    "QQGroupDailyAnalysis/src",
+    "QQGroupDailyAnalysis/scripts",
+    "QQGroupDailyAnalysis/dashboard",
+    "QQGroupDailyAnalysis/pages",
+    "tests"
+  ]
+}

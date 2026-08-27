@@ -1,0 +1,37 @@
+[project]
+name = "qq-group-daily-analysis"
+version = "5.0.8"
+description = "GsCore/SayuCore 群聊分析、可视化报告、定时增量分析和每日群漫画插件"
+authors = [
+    { name = "bvzrays" },
+    { name = "SXP-Simon" },
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "diskcache>=5.6.3",
+    "ulid-py>=1.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/bvzrays/qq_group_daily_analysis"
+Repository = "https://github.com/bvzrays/qq_group_daily_analysis"
+"Original Project" = "https://github.com/SXP-Simon/astrbot_plugin_qq_group_daily_analysis"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = ["QQGroupDailyAnalysis/dashboard", "QQGroupDailyAnalysis/pages"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+exclude = ["QQGroupDailyAnalysis/dashboard", "QQGroupDailyAnalysis/pages"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
