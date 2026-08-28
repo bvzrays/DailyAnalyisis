@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://github.com/bvzrays/DailyAnalyisis"><img src="./ICON.png" width="256" height="256" alt="DailyAnalyisis"></a>
 </p>
-<h1 align="center">DailyAnalyisis 5.0.8</h1>
+<h1 align="center">DailyAnalyisis 5.0.9</h1>
 <h4 align="center">✨ 面向 GsCore / 早柚核心的群聊分析、可视化日报与每日群漫画插件 ✨</h4>
 <div align="center">
   <a href="https://docs.sayu-bot.com/" target="_blank">GsCore 文档</a> &nbsp; · &nbsp;
@@ -138,7 +138,7 @@ uv run core
 | `day群分析 [天数]` | `group_analysis` | 生成最近指定天数的群聊分析报告；不填时使用配置默认值 |
 | `day群漫画 [天数]` | `group_comic`、`daily_comic` | 独立提取话题并生成群漫画，不额外生成日报 |
 | `day设置格式 [格式]` | `set_format` | 查看或设置 `image`、`text`、`html`，支持逗号组合 |
-| `day设置模板 [名称/序号/随机]` | `set_template` | 查看当前模板或切换报告模板；默认 ATRI，可设置为随机 |
+| `day设置模板 [名称/序号/随机]` | `set_template` | 查看当前模板或切换报告模板；新安装默认 ATRI，可设置为随机 |
 | `day查看模板` | `view_templates` | 查看全部报告模板及预览 |
 | `day分析设置 [动作]` | `analysis_settings` | 管理当前群分析状态与调试开关 |
 | `day增量状态` | `incremental_status` | 查看当前滑动窗口内的增量分析状态 |
@@ -162,7 +162,7 @@ uv run core
 | 配置组 | 主要内容 |
 |---|---|
 | GsCore 总览 | 插件总开关、外部 WebUI 开关（默认关闭） |
-| 基础设置 | 群名单、分析天数、消息阈值、输出格式、模板（默认 ATRI/随机）、用户卡片和调试开关 |
+| 基础设置 | 群名单、分析天数、消息阈值、输出格式、模板（新安装默认 ATRI/随机）、用户卡片和调试开关 |
 | WebUI 安全 | 首次访问密码、会话保护和公网访问安全设置 |
 | QQ 官方机器人 | QQ 官方 Markdown 报告概览图 |
 | 图片渲染策略 | 两轮渲染格式、质量、缩放、超时、视口和字体源 |
@@ -185,6 +185,8 @@ uv run core
 WebConsole 参数区按“总览、基础配置、展示配置”拆分为 3 个原生配置标签；其中基础配置和展示配置内部仍按功能分隔，并保留全部 schema 字段。插件 WebUI 同样按两栏导航展示，不需要在单一长表单中查找。配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
 
 外部 WebUI 默认关闭。需要使用时，先在 GsCore WebConsole 的 `群分析·总览 → 启用外部 WebUI` 中开启；开启后第一次进入页面会要求设置独立访问密码。密码只以 PBKDF2-SHA256 摘要保存，不会写入明文。之后可在 `DailyAnalyisis基础配置 → 群分析·WebUI安全 → WebUI访问密码` 中输入新密码，保存后立即生效并使旧会话失效。公网部署还应使用 HTTPS 和反向代理，不要直接暴露未加密的 HTTP。
+
+升级时会保留已有配置。如果旧安装当前仍显示 `scrapbook`，请在 GsCore 控制台选择 `ATRI`，或执行 `day设置模板 ATRI`；这不是更新失败，而是为了避免覆盖用户主动选择过的模板。
 
 ## 丨AI 配置
 
