@@ -5,10 +5,6 @@ import {
   fetchConnectedPlatforms,
   ConnectedPlatform,
 } from "../../../entities/task/api/taskApi";
-import {
-  fetchProviderList,
-  LLMProviderItem,
-} from "../../../entities/trace/api/traceApi";
 import { GroupItem } from "../../../entities/group/model/types";
 
 export function useTriggerTask(groups: GroupItem[] = [], onSuccess?: () => void) {
@@ -16,28 +12,21 @@ export function useTriggerTask(groups: GroupItem[] = [], onSuccess?: () => void)
   const [groupId, setGroupId] = useState("");
   const [groupName, setGroupName] = useState("");
   const [platform, setPlatform] = useState("auto");
-  const [providerId, setProviderId] = useState("auto");
   const [submitting, setSubmitting] = useState(false);
   const [connectedPlatforms, setConnectedPlatforms] = useState<ConnectedPlatform[]>([]);
   const [loadingPlatforms, setLoadingPlatforms] = useState(false);
-  const [providers, setProviders] = useState<LLMProviderItem[]>([]);
-  const [loadingProviders, setLoadingProviders] = useState(false);
 
   const loadOptions = async () => {
     try {
       setLoadingPlatforms(true);
-      setLoadingProviders(true);
-      const [platList, provList] = await Promise.allSettled([
+      const [platList] = await Promise.allSettled([
         fetchConnectedPlatforms(),
-        fetchProviderList(),
       ]);
       if (platList.status === "fulfilled") setConnectedPlatforms(platList.value);
-      if (provList.status === "fulfilled") setProviders(provList.value);
     } catch {
       // Ignore background failure, fallback options will be displayed
     } finally {
       setLoadingPlatforms(false);
-      setLoadingProviders(false);
     }
   };
 
@@ -45,7 +34,6 @@ export function useTriggerTask(groups: GroupItem[] = [], onSuccess?: () => void)
     setGroupId("");
     setGroupName("");
     setPlatform("auto");
-    setProviderId("auto");
     setOpen(true);
     loadOptions();
   };
@@ -80,7 +68,6 @@ export function useTriggerTask(groups: GroupItem[] = [], onSuccess?: () => void)
         trimmedId,
         groupName.trim(),
         platform,
-        providerId !== "auto" ? providerId : undefined
       );
       if (res.status === "ok") {
         const traceInfo = res.trace_id ? ` (任务编号: ${res.trace_id})` : "";
@@ -106,13 +93,9 @@ export function useTriggerTask(groups: GroupItem[] = [], onSuccess?: () => void)
     setGroupName,
     platform,
     setPlatform,
-    providerId,
-    setProviderId,
     submitting,
     connectedPlatforms,
     loadingPlatforms,
-    providers,
-    loadingProviders,
     handleOpen,
     handleClose,
     handleSubmit,

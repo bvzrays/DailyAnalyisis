@@ -28,6 +28,7 @@ from PIL import Image, UnidentifiedImageError
 
 from ...domain.repositories.report_repository import IReportGenerator
 from ...shared.trace_context import TraceContext
+from ....gscore_runtime.context import sanitize_rendered_html
 from ...utils.logger import logger
 from ..utils.template_utils import render_template
 from ..visualization.activity_charts import ActivityVisualizer
@@ -396,6 +397,7 @@ class ReportGenerator(IReportGenerator):
                 render_payload.get("avatar_reuse_registry", {}),
                 render_payload.get("avatar_reuse_aliases", {}),
             )
+            html_content = sanitize_rendered_html(html_content)
 
             # 检查HTML内容是否有效
             if not html_content:
@@ -770,6 +772,7 @@ class ReportGenerator(IReportGenerator):
                     render_data.get("avatar_reuse_registry", {}),
                     render_data.get("avatar_reuse_aliases", {}),
                 )
+                html_content = sanitize_rendered_html(html_content)
                 logger.debug("使用 html_template.html 渲染成功")
             except Exception as e:
                 logger.warning(
@@ -783,6 +786,7 @@ class ReportGenerator(IReportGenerator):
                     render_data.get("avatar_reuse_registry", {}),
                     render_data.get("avatar_reuse_aliases", {}),
                 )
+                html_content = sanitize_rendered_html(html_content)
                 logger.debug("使用 image_template.html 渲染成功")
 
             # 检查HTML内容是否有效

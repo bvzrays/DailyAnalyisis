@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Modal, Alert, Form, Select, Space } from "antd";
-import { SyncOutlined, ApiOutlined, SkinOutlined } from "@ant-design/icons";
-import { fetchProviderList, LLMProviderItem } from "../../../entities/trace/api/traceApi";
+import { SyncOutlined, SkinOutlined } from "@ant-design/icons";
 import { fetchReportTemplates } from "../../../entities/report/api/reportApi";
 import { formatTemplateOptions, ReportTemplateItem } from "../../../entities/report/model/templates";
 
@@ -9,7 +8,7 @@ interface ResumeTaskModalProps {
   open: boolean;
   loading: boolean;
   onCancel: () => void;
-  onConfirm: (selectedProvider?: string, selectedTemplate?: string) => void;
+  onConfirm: (selectedTemplate?: string) => void;
 }
 
 export const ResumeTaskModal: React.FC<ResumeTaskModalProps> = ({
@@ -18,23 +17,14 @@ export const ResumeTaskModal: React.FC<ResumeTaskModalProps> = ({
   onCancel,
   onConfirm,
 }) => {
-  const [providers, setProviders] = useState<LLMProviderItem[]>([]);
-  const [loadingProviders, setLoadingProviders] = useState(false);
   const [templates, setTemplates] = useState<ReportTemplateItem[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState("auto");
   const [selectedTemplate, setSelectedTemplate] = useState("auto");
 
   useEffect(() => {
     if (open) {
-      setSelectedProvider("auto");
       setSelectedTemplate("auto");
-      setLoadingProviders(true);
       setLoadingTemplates(true);
-      fetchProviderList()
-        .then((list) => setProviders(list))
-        .catch(() => {})
-        .finally(() => setLoadingProviders(false));
       fetchReportTemplates()
         .then((list) => setTemplates(list))
         .catch(() => {})
@@ -43,10 +33,7 @@ export const ResumeTaskModal: React.FC<ResumeTaskModalProps> = ({
   }, [open]);
 
   const handleOk = () => {
-    onConfirm(
-      selectedProvider !== "auto" ? selectedProvider : undefined,
-      selectedTemplate !== "auto" ? selectedTemplate : undefined
-    );
+    onConfirm(selectedTemplate !== "auto" ? selectedTemplate : undefined);
   };
 
   const templateOptions = formatTemplateOptions(templates, true);
@@ -78,29 +65,6 @@ export const ResumeTaskModal: React.FC<ResumeTaskModalProps> = ({
         />
 
         <Form layout="vertical">
-          <Form.Item
-            label={
-              <Space>
-                <ApiOutlined />
-                <span>指定大模型 Provider (选填)</span>
-              </Space>
-            }
-            extra="若上次分析因大模型崩溃、限流或 Provider 故障中断，可在此临时指定其他备用模型完成续跑"
-          >
-            <Select
-              value={selectedProvider}
-              onChange={setSelectedProvider}
-              loading={loadingProviders}
-              options={[
-                { label: "跟随系统默认配置 (推荐)", value: "auto" },
-                ...providers.map((p) => ({
-                  label: p.label || `${p.name} (${p.id})`,
-                  value: p.id,
-                })),
-              ]}
-            />
-          </Form.Item>
-
           <Form.Item
             label={
               <Space>

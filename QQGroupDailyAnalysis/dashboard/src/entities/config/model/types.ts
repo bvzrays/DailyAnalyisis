@@ -16,6 +16,7 @@ export interface SchemaFieldItem {
   hint?: string;
   default?: unknown;
   options?: Array<string | number>;
+  secret?: boolean;
   items?: SchemaFieldItem | Record<string, SchemaFieldItem>;
   templates?: Record<
     string,

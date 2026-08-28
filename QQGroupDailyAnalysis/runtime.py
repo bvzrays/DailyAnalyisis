@@ -22,7 +22,8 @@ class PluginRuntime:
         if not gsconfig.get_config("Enabled").data:
             logger.info("QQGroupDailyAnalysis is disabled by configuration")
             return
-        plugin = GroupDailyAnalysis(PluginContext(), load_config())
+        config = load_config()
+        plugin = GroupDailyAnalysis(PluginContext(config), config)
         self.plugin = plugin
         await plugin.initialize()
 

@@ -16,7 +16,6 @@ import {
 import {
   PlusOutlined,
   UndoOutlined,
-  ApartmentOutlined,
   UserOutlined,
   FileOutlined,
   UploadOutlined,
@@ -69,14 +68,22 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
   const options = fieldSchema.options;
   const defaultValue = fieldSchema.default;
 
-  // 1. 判断是否为 Provider 选择字段
-  const isProviderField =
-    type === "string" &&
-    (fieldKey.toLowerCase().includes("provider") ||
-      fieldKey.toLowerCase().includes("provider_id") ||
-      fieldSchema._special === "select_provider");
+  if (type === "string" && fieldSchema.secret) {
+    const currentVal = typeof value === "string" ? value : "";
+    return (
+      <Input.Password
+        value={currentVal}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => {
+          if (currentVal === "********") onChange("");
+        }}
+        placeholder="输入新 Key；留空保留当前 Key"
+        style={{ fontFamily: SANS_MONO_FONT }}
+      />
+    );
+  }
 
-  // 2. 判断是否为 Persona 人设选择字段
+  // 1. 判断是否为 Persona 人设选择字段
   const isPersonaField =
     type === "string" &&
     (fieldKey.toLowerCase().includes("persona") ||
@@ -143,52 +150,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             );
           })}
         </div>
-      );
-    }
-
-    // 1. Provider 智能选择输入框（支持选择 GsCore Provider 或自由手输）
-    if (isProviderField) {
-      const currentVal =
-        typeof value === "string"
-          ? value
-          : typeof defaultValue === "string"
-          ? defaultValue
-          : "";
-      const providerOptions = [
-        {
-          value: "",
-          label: "（留空使用当前会话默认 Provider）",
-        },
-        ...providers.map((p) => ({
-          value: p.id,
-          label: `${p.name || p.id} [${p.id}]${p.type ? ` (${p.type})` : ""}`,
-        })),
-      ];
-
-      return (
-        <AutoComplete
-          value={currentVal}
-          options={providerOptions}
-          onChange={(v) => onChange(v)}
-          style={{ width: "100%" }}
-          placeholder="可从下拉列表选择已有 Provider，或直接输入 ID"
-          filterOption={(inputValue, option) =>
-            String(option?.label || "")
-              .toLowerCase()
-              .includes(inputValue.toLowerCase()) ||
-            String(option?.value || "")
-              .toLowerCase()
-              .includes(inputValue.toLowerCase())
-          }
-        >
-          <Input
-            prefix={
-              <ApartmentOutlined style={{ color: "#2563eb", marginRight: 4 }} />
-            }
-            allowClear
-            style={{ fontFamily: SANS_MONO_FONT }}
-          />
-        </AutoComplete>
       );
     }
 

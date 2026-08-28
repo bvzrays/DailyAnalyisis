@@ -243,95 +243,13 @@ async def get_provider_id_with_fallback(
     provider_id_key: str | None,
     umo: str | None = None,
 ) -> str | None:
-    """
-    根据配置键获取 Provider ID，支持多级回退
+    """返回插件自有 Provider，禁止回退到 GsCore 全局 AI。"""
 
-    回退顺序：
-    1. 尝试从配置获取指定的 provider_id（如 topic_provider_id）
-    2. 回退到主 LLM provider_id（llm_provider_id）
-    3. 回退到当前会话的 Provider（通过 umo）
-    4. 回退到第一个可用的 Provider
-
-    Args:
-        context: GsCore 分析上下文对象
-        config_manager: 配置管理器
-        provider_id_key: 配置中的 provider_id 键名（如 'topic_provider_id'）
-        umo: unified_msg_origin，用于获取会话默认 Provider
-
-    Returns:
-        Provider ID 或 None
-    """
-    try:
-        # 输出Provider选择开始日志
-        task_desc = provider_id_key if provider_id_key else "默认任务"
-        logger.info(f"[Provider 选择] 开始为 {task_desc} 选择 Provider...")
-
-        # 定义回退策略列表
-        strategies = []
-        strategy_names = []
-
-        # 0. 显式覆盖 Provider (续跑或手动调试时通过 TraceContext 传入)
-        trace = TraceContext.current()
-        override_provider_id = (
-            trace.metadata.get("override_provider_id") if trace else None
-        )
-        if override_provider_id:
-            strategies.append(
-                lambda pid=override_provider_id: _try_get_provider_id_by_id(
-                    context, pid, "续跑/手动指定的 Provider"
-                )
-            )
-            strategy_names.append(f"0. 指定的 Provider ({override_provider_id})")
-
-        # 1. 特定任务的 provider_id
-        if provider_id_key:
-            getter_method = f"get_{provider_id_key}"
-            if hasattr(config_manager, getter_method):
-                specific_provider_id = getattr(config_manager, getter_method)()
-                if specific_provider_id:
-                    strategies.append(
-                        lambda pid=specific_provider_id: _try_get_provider_id_by_id(
-                            context, pid, f"配置的 {provider_id_key}"
-                        )
-                    )
-                    strategy_names.append(f"1. 配置的 {provider_id_key}")
-
-        # 2. 主 LLM provider_id
-        main_provider_id = config_manager.get_llm_provider_id()
-        if main_provider_id:
-            strategies.append(
-                lambda pid=main_provider_id: _try_get_provider_id_by_id(
-                    context, pid, "主 LLM Provider"
-                )
-            )
-            strategy_names.append("2. 主 LLM Provider")
-
-        # 3. 当前会话的 Provider
-        strategies.append(lambda: _try_get_session_provider_id(context, umo))
-        strategy_names.append("3. 当前会话 Provider")
-
-        # 4. 第一个可用的 Provider
-        strategies.append(lambda: _try_get_first_available_provider_id(context))
-        strategy_names.append("4. 第一个可用 Provider")
-
-        # 输出回退策略列表
-        logger.info(f"[Provider 选择] 回退策略顺序：{' -> '.join(strategy_names)}")
-
-        # 依次尝试每个策略
-        for idx, strategy in enumerate(strategies):
-            provider_id = await strategy()
-            if provider_id:
-                logger.info(
-                    f"[Provider 选择] ✓ 成功！使用策略 #{idx + 1}，Provider ID: {provider_id}"
-                )
-                return provider_id
-
-        logger.error("[Provider 选择] ✗ 失败：所有回退策略均无法获取可用 Provider")
+    provider = context.get_provider_by_id("plugin")
+    if provider is None:
+        logger.error("插件独立 LLM Provider 未初始化")
         return None
-
-    except Exception as e:
-        logger.error(f"[Provider 选择] ✗ 异常：Provider 选择过程出错: {e}")
-        return None
+    return "plugin"
 
 
 async def call_provider_with_retry(
@@ -363,7 +281,7 @@ async def call_provider_with_retry(
     Returns:
         LLM生成的结果，失败时返回None
     """
-    # 超时由 GsCore AI Provider 配置控制，不在插件层额外包裹 asyncio.wait_for。
+    # HTTP 超时由插件自己的 llm.timeout 控制。
     retries = config_manager.get_llm_retries()
     backoff = config_manager.get_llm_backoff()
     enable_streaming_llm_call = config_manager.get_enable_streaming_llm_call()
@@ -629,7 +547,7 @@ async def call_provider_with_retry(
     # 记录上一次尝试的 Provider ID，用于判断是否发生切换
     previous_pid = None
     # 惰性降级标记：仅在 primary provider 重试用尽后才 resolve fallback
-    needs_fallback = provider_id_key is not None
+    needs_fallback = False
 
     for i, (current_pid, is_fallback) in enumerate(attempt_queue):
         attempt_num = i + 1

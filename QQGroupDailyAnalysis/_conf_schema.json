@@ -344,49 +344,47 @@
     "llm": {
         "description": "LLM 设置",
         "type": "object",
-        "hint": "大语言模型相关配置，包括 Provider 选择、重试策略和 Token 限制",
+        "hint": "插件独立的大语言模型配置。这里的 API Key、端点和模型只供本插件使用，不读取或修改 GsCore 全局 AI 配置。",
         "items": {
-            "llm_provider_id": {
+            "api_key": {
                 "type": "string",
-                "description": "LLM Provider ID（用于所有分析任务）",
-                "_special": "select_provider",
+                "description": "插件专用 API Key",
                 "default": "",
-                "hint": "选择用于群聊分析的 LLM Provider。留空则使用当前会话的默认 Provider"
+                "secret": true,
+                "hint": "仅保存在本插件配置中，并通过 Authorization 请求头发送；不会读取 GsCore 全局 AI Key。"
             },
-            "topic_provider_id": {
+            "api_url": {
                 "type": "string",
-                "description": "话题分析专用 Provider ID",
-                "_special": "select_provider",
-                "default": "",
-                "hint": "专门用于话题分析的 Provider。留空则使用主 LLM Provider"
+                "description": "插件专用 API 端点 URL",
+                "default": "https://api.openai.com/v1",
+                "hint": "填写 OpenAI 兼容接口的根地址，例如 https://example.com/v1；插件会自动请求 /chat/completions。"
             },
-            "user_title_provider_id": {
+            "model": {
                 "type": "string",
-                "description": "用户称号分析专用 Provider ID",
-                "_special": "select_provider",
-                "default": "",
-                "hint": "专门用于用户称号分析的 Provider。留空则使用主 LLM Provider"
+                "description": "插件专用模型名称",
+                "default": "gpt-4o-mini",
+                "hint": "所有话题、称号、金句、质量分析和漫画分镜请求都使用此模型。"
             },
-            "golden_quote_provider_id": {
-                "type": "string",
-                "description": "金句分析专用 Provider ID",
-                "_special": "select_provider",
-                "default": "",
-                "hint": "专门用于金句分析的 Provider。留空则使用主 LLM Provider"
+            "temperature": {
+                "type": "float",
+                "description": "默认 temperature",
+                "default": 0.7,
+                "slider": {"min": 0.0, "max": 2.0},
+                "hint": "插件请求的默认采样温度；结构化输出重试会按插件内置策略临时降低。"
             },
-            "quality_provider_id": {
-                "type": "string",
-                "description": "聊天质量分析专用 Provider ID",
-                "_special": "select_provider",
-                "default": "",
-                "hint": "专门用于聊天质量锐评的 Provider。留空则使用主 LLM Provider"
+            "max_tokens": {
+                "type": "int",
+                "description": "单次请求最大输出 Token",
+                "default": 8192,
+                "slider": {"min": 1, "max": 32768},
+                "hint": "发送给兼容接口的 max_tokens 上限。"
             },
-            "drawing_prompt_provider_id": {
-                "type": "string",
-                "description": "用于每日群漫画区域的功能，画图提示词专用 Provider ID",
-                "_special": "select_provider",
-                "default": "",
-                "hint": "专门用于生成漫画分镜、画图提示词及失败后的提示词重写。推荐最低使用 DeepSeek V4 Flash，避免使用角色扮演能力较弱的模型。留空则使用主 LLM Provider"
+            "timeout": {
+                "type": "int",
+                "description": "API 请求超时（秒）",
+                "default": 120,
+                "slider": {"min": 1, "max": 600},
+                "hint": "插件独立 HTTP 请求的总超时时间。"
             },
             "llm_retries": {
                 "type": "int",
@@ -404,7 +402,7 @@
                 "type": "bool",
                 "description": "启用流式 LLM 调用",
                 "default": false,
-                "hint": "默认关闭，使用非流式调用方式。开启后，插件将使用 GsCore AI Provider 的流式接口并聚合结果，适用于仅支持 stream=true 的服务。"
+                "hint": "默认关闭，使用非流式调用方式。开启后，插件将使用本插件 API 端点的 stream=true 接口并聚合结果。"
             }
         }
     },

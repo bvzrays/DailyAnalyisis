@@ -10,7 +10,8 @@ from .runtime import runtime
 
 Plugins(
     name="QQGroupDailyAnalysis",
-    allow_empty_prefix=True,
+    prefix=["day"],
+    allow_empty_prefix=False,
     alias=["群日常分析", "群分析总结"],
 )
 

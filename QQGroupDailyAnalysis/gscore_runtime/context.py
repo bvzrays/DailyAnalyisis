@@ -3,8 +3,11 @@ from __future__ import annotations
 import re
 import json
 from types import SimpleNamespace
+from collections.abc import AsyncIterator
 
-from .config import PluginPaths
+import aiohttp
+
+from .config import PluginConfig, PluginPaths
 from .provider import LLMUsage, LLMResponse
 
 _SVG_OPEN_TAG_RE = re.compile(r"<svg\b[^>]*>", re.IGNORECASE)
@@ -15,6 +18,17 @@ _DOODLE_CLASS_RE = re.compile(
 _SVG_DIMENSION_RE = re.compile(
     r'''\s(?:width|height)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)''',
     re.IGNORECASE,
+)
+_IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+_IMG_SRC_RE = re.compile(r"\bsrc\s*=\s*(['\"])(.*?)\1", re.IGNORECASE | re.DOTALL)
+_UPLOADED_URL_RE = re.compile(
+    r"url\(\s*(['\"])uploaded:[^)]*?\1\s*\)", re.IGNORECASE
+)
+_FALLBACK_IMAGE_DATA = (
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' "
+    "viewBox='0 0 80 80'%3E%3Crect width='80' height='80' rx='16' "
+    "fill='%23dbeafe'/%3E%3Ccircle cx='40' cy='30' r='12' fill='%2360a5fa'/%3E"
+    "%3Cpath d='M16 68c4-16 44-16 48 0' fill='%2360a5fa'/%3E%3C/svg%3E"
 )
 
 
@@ -43,48 +57,207 @@ def _usage_from_entries(entries: list[object]) -> LLMUsage:
     return usage
 
 
+def sanitize_rendered_html(html: str) -> str:
+    """为缺失的图片资源提供稳定占位图，避免渲染器直接拒绝文档。"""
+
+    def replace_img(match: re.Match[str]) -> str:
+        tag = match.group(0)
+        src_match = _IMG_SRC_RE.search(tag)
+        if src_match is None:
+            return tag[:-1] + f' src="{_FALLBACK_IMAGE_DATA}">'
+        if not src_match.group(2).strip():
+            start, end = src_match.span(2)
+            return tag[:start] + _FALLBACK_IMAGE_DATA + tag[end:]
+        return tag
+
+    html = _IMG_TAG_RE.sub(replace_img, html)
+    return _UPLOADED_URL_RE.sub(f"url('{_FALLBACK_IMAGE_DATA}')", html)
+
+
 class _Provider:
-    def __init__(self, provider_id: str = "gscore") -> None:
+    def __init__(self, config: PluginConfig, provider_id: str = "plugin") -> None:
+        self.config = config
         self.provider_id = provider_id
-        self.provider_config = {"type": "gscore", "model": provider_id}
+        self.provider_config = {}
 
     def meta(self):
         return SimpleNamespace(id=self.provider_id, name=self.provider_id)
 
-    async def text_chat(self, **kwargs) -> LLMResponse:
-        return await self._run(kwargs)
+    def _llm_config(self) -> dict[str, object]:
+        value = self.config.get("llm", {})
+        return value if isinstance(value, dict) else {}
 
-    async def text_chat_stream(self, **kwargs):
-        yield await self._run(kwargs)
+    def _settings(self, kwargs: dict[str, object]) -> dict[str, object]:
+        config = self._llm_config()
+        model = str(config.get("model", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+        base_url = str(config.get("api_url", "https://api.openai.com/v1")).strip()
+        api_key = str(config.get("api_key", "")).strip()
+        temperature_value = kwargs.get("temperature", config.get("temperature", 0.7))
+        try:
+            temperature = max(0.0, min(2.0, float(temperature_value)))
+        except (TypeError, ValueError):
+            temperature = 0.7
+        try:
+            max_tokens = max(1, int(config.get("max_tokens", 8192)))
+        except (TypeError, ValueError):
+            max_tokens = 8192
+        try:
+            timeout = max(1, int(config.get("timeout", 120)))
+        except (TypeError, ValueError):
+            timeout = 120
+        self.provider_config = {
+            "type": "plugin_openai_compatible",
+            "model": model,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "timeout": timeout,
+        }
+        return {
+            "model": model,
+            "base_url": base_url.rstrip("/"),
+            "api_key": api_key,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "timeout": timeout,
+        }
 
-    async def _run(self, kwargs: dict) -> LLMResponse:
-        from gsuid_core.ai_core.gs_agent import GsCoreAIAgent
+    @staticmethod
+    def _content_text(value: object) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            parts: list[str] = []
+            for item in value:
+                if isinstance(item, dict) and isinstance(item.get("text"), str):
+                    parts.append(item["text"])
+            return "".join(parts)
+        return str(value or "")
 
-        prompt = str(kwargs.get("prompt", ""))
-        system_prompt = kwargs.get("system_prompt")
-        agent = GsCoreAIAgent(
-            system_prompt=str(system_prompt) if system_prompt else None,
-            create_by="QQGroupDailyAnalysis",
-            task_level="high",
-            dynamic_tools=False,
-        )
-        session_logger = getattr(agent, "_session_logger", None)
-        entries = getattr(session_logger, "entries", [])
-        entry_count = len(entries) if isinstance(entries, list) else 0
-        result = await agent.run(
-            prompt,
-            return_mode="return",
-            tools=[],
-            suppress_intermediate_text=True,
-        )
-        text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
-        current_entries = getattr(session_logger, "entries", [])
-        new_entries = current_entries[entry_count:] if isinstance(current_entries, list) else []
+    @staticmethod
+    def _response_from_payload(payload: dict[str, object]) -> LLMResponse:
+        choices = payload.get("choices")
+        completion_text = ""
+        if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+            message = choices[0].get("message")
+            if isinstance(message, dict):
+                completion_text = _Provider._content_text(message.get("content"))
+            if not completion_text:
+                completion_text = _Provider._content_text(choices[0].get("text"))
+        usage_data = payload.get("usage")
+        usage = LLMUsage()
+        if isinstance(usage_data, dict):
+            usage.prompt_tokens = int(usage_data.get("prompt_tokens", 0) or 0)
+            usage.completion_tokens = int(usage_data.get("completion_tokens", 0) or 0)
+            usage.total_tokens = int(
+                usage_data.get("total_tokens", usage.prompt_tokens + usage.completion_tokens)
+                or 0
+            )
         return LLMResponse(
             role="assistant",
-            completion_text=text,
-            usage=_usage_from_entries(new_entries),
+            completion_text=completion_text,
+            usage=usage,
+            raw_completion=payload,
         )
+
+    @staticmethod
+    def _error_text(status: int, body: str, api_key: str) -> str:
+        safe_body = body.replace(api_key, "[REDACTED]") if api_key else body
+        return f"插件 LLM 请求失败 (HTTP {status}): {safe_body[:1000]}"
+
+    def _build_payload(self, kwargs: dict[str, object], stream: bool) -> dict[str, object]:
+        settings = self._settings(kwargs)
+        messages: list[dict[str, str]] = []
+        system_prompt = kwargs.get("system_prompt")
+        if system_prompt:
+            messages.append({"role": "system", "content": str(system_prompt)})
+        messages.append({"role": "user", "content": str(kwargs.get("prompt", ""))})
+        payload: dict[str, object] = {
+            "model": settings["model"],
+            "messages": messages,
+            "temperature": settings["temperature"],
+            "max_tokens": settings["max_tokens"],
+            "stream": stream,
+        }
+        response_format = kwargs.get("response_format")
+        if isinstance(response_format, dict):
+            payload["response_format"] = response_format
+        return payload
+
+    async def text_chat(self, **kwargs: object) -> LLMResponse:
+        return await self._run(kwargs)
+
+    async def text_chat_stream(self, **kwargs: object) -> AsyncIterator[LLMResponse]:
+        settings = self._settings(kwargs)
+        payload = self._build_payload(kwargs, stream=True)
+        headers = {"Content-Type": "application/json"}
+        if settings["api_key"]:
+            headers["Authorization"] = f"Bearer {settings['api_key']}"
+        timeout = aiohttp.ClientTimeout(total=int(settings["timeout"]))
+        async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
+            async with session.post(
+                f"{settings['base_url']}/chat/completions",
+                json=payload,
+                headers=headers,
+            ) as response:
+                if response.status >= 400:
+                    body = await response.text()
+                    raise RuntimeError(self._error_text(response.status, body, str(settings["api_key"])))
+                collected: list[str] = []
+                usage = LLMUsage()
+                async for raw_line in response.content:
+                    line = raw_line.decode("utf-8", errors="ignore").strip()
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        continue
+                    try:
+                        chunk = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(chunk, dict):
+                        continue
+                    choices = chunk.get("choices")
+                    text = ""
+                    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+                        delta = choices[0].get("delta")
+                        if isinstance(delta, dict):
+                            text = self._content_text(delta.get("content"))
+                    if text:
+                        collected.append(text)
+                        yield LLMResponse(completion_text=text, is_chunk=True)
+                    usage_payload = chunk.get("usage")
+                    if isinstance(usage_payload, dict):
+                        usage = self._response_from_payload({"usage": usage_payload}).usage
+                yield LLMResponse(
+                    completion_text="".join(collected), usage=usage, is_chunk=False
+                )
+
+    async def _run(self, kwargs: dict[str, object]) -> LLMResponse:
+        settings = self._settings(kwargs)
+        payload = self._build_payload(kwargs, stream=False)
+        headers = {"Content-Type": "application/json"}
+        if settings["api_key"]:
+            headers["Authorization"] = f"Bearer {settings['api_key']}"
+        timeout = aiohttp.ClientTimeout(total=int(settings["timeout"]))
+        async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
+            async with session.post(
+                f"{settings['base_url']}/chat/completions",
+                json=payload,
+                headers=headers,
+            ) as response:
+                body = await response.text()
+                if response.status >= 400:
+                    raise RuntimeError(
+                        self._error_text(response.status, body, str(settings["api_key"]))
+                    )
+                try:
+                    parsed = json.loads(body)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError("插件 LLM 返回了无效 JSON") from exc
+                if not isinstance(parsed, dict):
+                    raise RuntimeError("插件 LLM 返回格式不是 JSON 对象")
+                return self._response_from_payload(parsed)
 
 
 class _CronManager:
@@ -96,13 +269,15 @@ class _CronManager:
 
 
 class PluginContext:
-    def __init__(self) -> None:
+    def __init__(self, config: PluginConfig) -> None:
         self.cron_manager = _CronManager()
-        self._provider = _Provider()
+        self._provider = _Provider(config)
         self.persona_manager = None
         self.conversation_manager = None
 
     def get_provider_by_id(self, provider_id: str | None = None):
+        if provider_id not in (None, self._provider.provider_id):
+            return None
         return self._provider
 
     def get_all_providers(self):
@@ -163,7 +338,7 @@ class PluginBase:
         image_type = str(opts.get("type", "jpeg")).lower()
         image_format = "jpeg" if image_type in {"jpg", "jpeg"} else "png"
         return await render_html_to_bytes(
-            _protect_inline_icons(tmpl),
+            sanitize_rendered_html(_protect_inline_icons(tmpl)),
             max_width=width,
             image_format=image_format,
             jpeg_quality=int(opts.get("quality", 95)),

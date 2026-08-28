@@ -116,7 +116,12 @@ def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
     slider = slider_value if isinstance(slider_value, dict) else {}
 
     if field_type == "bool":
-        return GsBoolConfig(title=title, desc=description, data=bool(default))
+        return GsBoolConfig(
+            title=title,
+            desc=description,
+            data=bool(default),
+            secret=bool(spec.get("secret", False)),
+        )
     if field_type == "int":
         int_options = [int(value) for value in options] if isinstance(options, list) else []
         maximum = slider.get("max")
@@ -126,6 +131,7 @@ def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
             data=int(default or 0),
             max_value=int(maximum) if isinstance(maximum, (int, float)) else None,
             options=int_options,
+            secret=bool(spec.get("secret", False)),
         )
     if field_type == "float":
         minimum = slider.get("min")
@@ -136,6 +142,7 @@ def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
             data=float(default or 0),
             min_value=float(minimum) if isinstance(minimum, (int, float)) else None,
             max_value=float(maximum) if isinstance(maximum, (int, float)) else None,
+            secret=bool(spec.get("secret", False)),
         )
     if field_type == "list":
         values = [str(value) for value in default] if isinstance(default, list) else []
@@ -145,6 +152,7 @@ def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
             desc=description,
             data=values,
             options=string_options,
+            secret=bool(spec.get("secret", False)),
         )
     if field_type in {"file", "template_list"}:
         encoded = json.dumps(default, ensure_ascii=False, indent=2)
@@ -153,6 +161,7 @@ def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
             desc=f"{description}\n请使用 JSON 格式编辑。".strip(),
             data=encoded,
             details=_string_details(path, spec),
+            secret=bool(spec.get("secret", False)),
         )
     string_options = [str(value) for value in options] if isinstance(options, list) else []
     return GsStrConfig(
@@ -161,6 +170,7 @@ def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
         data=str(default or ""),
         options=string_options,
         details=_string_details(path, spec),
+        secret=bool(spec.get("secret", False)),
     )
 
 
@@ -246,12 +256,27 @@ def _migrate_legacy_gscore_config() -> None:
         "MaxMessages": "basic.max_messages",
         "MinMessages": "basic.min_messages_threshold",
         "OutputFormats": "basic.output_format",
-        "LLMProvider": "llm.llm_provider_id",
         "ScheduleTimes": "auto_analysis.auto_analysis_time",
+    }
+    legacy_provider_fields = {
+        "llm_provider_id",
+        "topic_provider_id",
+        "user_title_provider_id",
+        "golden_quote_provider_id",
+        "quality_provider_id",
+        "drawing_prompt_provider_id",
     }
     changed = False
     for group_config in group_configs.values():
         group_config.migrate_from(gsconfig)
+    llm_config = group_configs.get("llm")
+    if llm_config is not None:
+        for field_name in legacy_provider_fields:
+            if field_name in llm_config.config:
+                llm_config.config.pop(field_name)
+                changed = True
+        if changed:
+            llm_config.sort_config()
     for old_key, new_key in legacy_mapping.items():
         target_config = _config_for_path(tuple(new_key.split(".")))
         if old_key not in gsconfig.config or new_key not in target_config.config:
@@ -385,6 +410,17 @@ def load_config() -> PluginConfig:
         raw = {}
     merged = _merge_defaults(raw, _DEFAULTS)
     assert isinstance(merged, dict)
+    llm_config = merged.get("llm")
+    if isinstance(llm_config, dict):
+        for field_name in (
+            "llm_provider_id",
+            "topic_provider_id",
+            "user_title_provider_id",
+            "golden_quote_provider_id",
+            "quality_provider_id",
+            "drawing_prompt_provider_id",
+        ):
+            llm_config.pop(field_name, None)
     if _GSCORE_CONFIG_EXISTED and _GSCORE_CONFIG_MTIME > config_mtime:
         _apply_gscore_to_config(merged)
     else:

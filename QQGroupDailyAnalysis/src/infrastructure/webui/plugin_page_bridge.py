@@ -46,6 +46,17 @@ class PluginPageWebUIBridge:
         self.report_output_dir = report_output_dir
         TraceContext.set_active_task_manager(self.active_task_manager)
 
+    @staticmethod
+    def _mask_config_secrets(config: dict[str, Any]) -> dict[str, Any]:
+        masked = dict(config)
+        llm = masked.get("llm")
+        if isinstance(llm, dict):
+            masked_llm = dict(llm)
+            if str(masked_llm.get("api_key", "")).strip():
+                masked_llm["api_key"] = "********"
+            masked["llm"] = masked_llm
+        return masked
+
     def register_routes(self) -> None:
         """向 GsCore 注册所有 Web API 端点。"""
         routes = [
@@ -1343,7 +1354,7 @@ class PluginPageWebUIBridge:
                 {
                     "status": "ok",
                     "data": {
-                        "config": config_dict,
+                        "config": self._mask_config_secrets(config_dict),
                         "schema": schema_dict,
                     },
                 }
@@ -1368,6 +1379,13 @@ class PluginPageWebUIBridge:
 
             # 更新插件配置字典
             for k, v in new_config.items():
+                if k == "llm" and isinstance(v, dict) and (
+                    not str(v.get("api_key", "")).strip()
+                    or str(v.get("api_key", "")).strip() == "********"
+                ):
+                    current_llm = cfg_mgr.config.get("llm", {})
+                    if isinstance(current_llm, dict):
+                        v = {**v, "api_key": current_llm.get("api_key", "")}
                 cfg_mgr.config[k] = v
 
             # 持久化保存
@@ -1382,7 +1400,7 @@ class PluginPageWebUIBridge:
                 {
                     "status": "ok",
                     "message": "配置已成功保存并持久化生效",
-                    "data": dict(cfg_mgr.config),
+                    "data": self._mask_config_secrets(dict(cfg_mgr.config)),
                 }
             )
         except Exception as e:

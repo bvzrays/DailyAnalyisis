@@ -544,7 +544,7 @@ class GroupDailyAnalysis(PluginBase):
     ):
         """
         分析群聊日常活动（跨平台支持）
-        用法: /群分析 [天数]
+        用法: day群分析 [天数]
         """
         if self._terminating:
             return
@@ -698,7 +698,7 @@ class GroupDailyAnalysis(PluginBase):
     ):
         """
         生成群聊趣味漫画（跨平台支持）
-        用法: /群漫画 [天数]
+        用法: day群漫画 [天数]
         """
         if self._terminating:
             return
@@ -1181,7 +1181,7 @@ class GroupDailyAnalysis(PluginBase):
     async def set_output_format(self, event: PluginMessageEvent, format_input: str = ""):
         """
         设置分析报告输出格式（跨平台支持）
-        用法: /设置格式 [格式名称或序号] 或 image,html 等逗号分隔的组合
+        用法: day设置格式 [格式名称或序号] 或 image,html 等逗号分隔的组合
         """
         # 命令由插件处理，禁用默认 LLM 回退。
         event.should_call_llm(True)
@@ -1206,7 +1206,7 @@ class GroupDailyAnalysis(PluginBase):
 可用格式:
 {format_list_str}
 
-用法: /设置格式 [名称或序号] 如 /设置格式 image,html""")
+用法: day设置格式 [名称或序号] 如 day设置格式 image,html""")
             return
 
         target_format = None
@@ -1251,7 +1251,7 @@ class GroupDailyAnalysis(PluginBase):
     ):
         """
         设置分析报告模板（跨平台支持）
-        用法: /设置模板 [模板名称或序号]
+        用法: day设置模板 [模板名称或序号]
         """
         # 命令由插件处理，禁用默认 LLM 回退。
         event.should_call_llm(True)
@@ -1270,8 +1270,8 @@ class GroupDailyAnalysis(PluginBase):
 可用模板:
 {template_list_str}
 
-用法: /设置模板 [模板名称或序号]
-💡 使用 /查看模板 查看预览图""")
+用法: day设置模板 [模板名称或序号]
+💡 使用 day查看模板 查看预览图""")
             return
 
         template_name, parse_error = self.template_command_service.parse_template_input(
@@ -1295,7 +1295,7 @@ class GroupDailyAnalysis(PluginBase):
     async def view_templates(self, event: PluginMessageEvent):
         """
         查看所有可用的报告模板及预览图（跨平台支持）
-        用法: /查看模板
+        用法: day查看模板
         """
         # 命令由插件处理，禁用默认 LLM 回退。
         event.should_call_llm(True)
@@ -1320,7 +1320,7 @@ class GroupDailyAnalysis(PluginBase):
     async def analysis_settings(self, event: PluginMessageEvent, action: str = "status"):
         """
         管理分析设置（跨平台支持）
-        用法: /分析设置 [enable|disable|status|reload|test]
+        用法: day分析设置 [enable|disable|status|reload|test]
         - enable: 启用当前群的分析功能
         - disable: 禁用当前群的分析功能
         - status: 查看当前状态
@@ -1443,7 +1443,7 @@ class GroupDailyAnalysis(PluginBase):
 
 💡 可用命令: enable, disable, status, reload, test, filter_bot, incremental_debug
 💡 支持的输出格式: image, text (图片包含活跃度可视化)
-💡 其他命令: /设置格式, /增量状态""")
+💡 其他命令: day设置格式, day增量状态""")
 
     async def incremental_status(self, event: PluginMessageEvent):
         """查看当前增量分析状态（滑动窗口）"""
