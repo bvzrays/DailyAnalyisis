@@ -1,6 +1,6 @@
 [project]
 name = "daily-analyisis"
-version = "5.0.13"
+version = "5.0.14"
 description = "GsCore/SayuCore 群聊分析、可视化报告、定时增量分析和每日群漫画插件"
 authors = [
     { name = "bvzrays" },

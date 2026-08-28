@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://github.com/bvzrays/DailyAnalyisis"><img src="./ICON.png" width="256" height="256" alt="DailyAnalyisis"></a>
 </p>
-<h1 align="center">DailyAnalyisis 5.0.13</h1>
+<h1 align="center">DailyAnalyisis 5.0.14</h1>
 <h4 align="center">✨ 面向 GsCore / 早柚核心的群聊分析、可视化日报与每日群漫画插件 ✨</h4>
 <div align="center">
   <a href="https://docs.sayu-bot.com/" target="_blank">GsCore 文档</a> &nbsp; · &nbsp;
@@ -184,7 +184,7 @@ uv run core
 - 插件 WebUI：`http://127.0.0.1:8765/daily-analyisis-gscore/`
 - 本地数据：`data/DailyAnalyisis/config.json`
 
-WebConsole 参数区按“总览、基础配置、展示配置”拆分为 3 个原生配置标签；其中基础配置和展示配置内部仍按功能分隔，并保留全部 schema 字段。插件 WebUI 同样按两栏导航展示，不需要在单一长表单中查找。配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
+WebConsole 参数区按“总览、基础配置、LLM 配置、展示配置”拆分为 4 个原生配置标签；其中基础配置、LLM 配置和展示配置内部仍按功能分隔，并保留全部 schema 字段。插件 WebUI 同样按两栏导航展示，不需要在单一长表单中查找。配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
 
 外部 WebUI 默认关闭。需要使用时，先在 GsCore WebConsole 的 `群分析·总览 → 启用外部 WebUI` 中开启；开启后第一次进入页面会要求设置独立访问密码。密码只以 PBKDF2-SHA256 摘要保存，不会写入明文。之后可在 `DailyAnalyisis基础配置 → 群分析·WebUI安全 → WebUI访问密码` 中输入新密码，保存后立即生效并使旧会话失效。公网部署还应使用 HTTPS 和反向代理，不要直接暴露未加密的 HTTP。
 
@@ -194,7 +194,7 @@ WebConsole 参数区按“总览、基础配置、展示配置”拆分为 3 个
 
 本插件直接使用自身的 OpenAI 兼容 HTTP Provider，完全不读取 GsCore 全局 AI 配置。
 
-1. 打开插件 WebUI 的“配置中心 → LLM 设置”。
+1. 打开 GsCore WebConsole 的 `DailyAnalyisis LLM配置`，或打开插件 WebUI 的“配置中心 → LLM 设置”。
 2. 填写插件专用 API Key、API 端点 URL 和模型名；端点填写到 `/v1` 根地址即可。
 3. 根据服务商能力调整 temperature、最大输出 Token、请求超时、重试和流式开关。
 4. 保存配置后，新请求立即使用插件配置；如运行中的任务仍持有旧配置，重载插件后再测试。

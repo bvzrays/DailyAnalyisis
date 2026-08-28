@@ -1380,9 +1380,9 @@ day帮助                 查看本帮助
 day更新日志             查看版本更新内容
 
 配置位置:
-GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis展示配置
+GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis LLM配置 / DailyAnalyisis展示配置
 独立 WebUI → 配置中心
-默认报告模板为 ATRI；LLM 的 Provider、API Key、端点和模型请在 GsCore AI 配置中设置"""
+默认报告模板为 ATRI；LLM 的 API Key、端点和模型请在 DailyAnalyisis LLM配置中设置"""
         )
 
     async def show_changelog(self, event: PluginMessageEvent):
@@ -1392,6 +1392,9 @@ GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis展示配置
             f"""📝 DailyAnalyisis 更新日志
 
 当前版本: v{PLUGIN_VERSION}
+
+v5.0.14
+• 在 GsCore 控制台新增独立的 DailyAnalyisis LLM配置 标签，集中管理 API Key、端点、模型及请求参数
 
 v5.0.13
 • 恢复插件独立 LLM 配置，API Key、端点和模型重新由本插件管理

@@ -59,11 +59,11 @@ _NATIVE_GROUP_MEMBERS = {
         "basic",
         "webui",
         "auto_analysis",
-        "llm",
         "analysis_features",
         "incremental",
         "performance",
     },
+    "DailyAnalyisis LLM配置": {"llm"},
     "DailyAnalyisis展示配置": {"qq_official", "t2i_rendering", "daily_comic", "html", "qq_group_upload", "prompts"},
 }
 
@@ -242,6 +242,7 @@ _GROUP_CONFIG_PATHS = {
 }
 _NATIVE_CONFIG_PATHS = {
     "DailyAnalyisis基础配置": GSCORE_CONFIG_DIR / "base.json",
+    "DailyAnalyisis LLM配置": GSCORE_CONFIG_DIR / "llm.json",
     "DailyAnalyisis展示配置": GSCORE_CONFIG_DIR / "display.json",
 }
 _existing_gscore_paths = [
@@ -335,6 +336,9 @@ def _migrate_legacy_gscore_config() -> None:
     changed = False
     for group_key, legacy_config in legacy_group_configs.items():
         group_configs[group_key].migrate_from(legacy_config)
+    native_configs["DailyAnalyisis LLM配置"].migrate_from(
+        native_configs["DailyAnalyisis基础配置"]
+    )
     for group_config in native_configs.values():
         group_config.migrate_from(gsconfig)
     for config in legacy_group_configs.values():
