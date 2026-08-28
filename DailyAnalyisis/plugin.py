@@ -1393,6 +1393,9 @@ GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis展示配置
 
 当前版本: v{PLUGIN_VERSION}
 
+v5.0.11
+• 更新插件头像，并同步 README 与 WebUI 展示头像
+
 v5.0.10
 • 修复 scrapbook（第 7 号模板）在部分生产渲染器中 SVG 图标异常放大的问题
 • LLM 默认 API 端点改为 https://chisa.akiyo.fun/v1
