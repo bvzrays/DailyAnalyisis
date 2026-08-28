@@ -69,6 +69,9 @@ class TemplateCommandService:
         if not template_input:
             return None, "❌ 模板参数不能为空"
 
+        if template_input.strip().lower() in {"random", "随机", "随机模板"}:
+            return "random", None
+
         if template_input.isdigit():
             index = int(template_input)
             if 1 <= index <= len(available_templates):
@@ -91,7 +94,7 @@ class TemplateCommandService:
 
         header_content = [
             Plain(
-                f"🎨 可用报告模板列表\n📌 当前使用: {current_template}\n💡 使用 /设置模板 [序号] 切换"
+                f"🎨 可用报告模板列表\n📌 当前使用: {current_template}\n💡 使用 /设置模板 [序号/随机] 切换"
             )
         ]
         node_list.append(Node(uin=bot_id, name="模板预览", content=header_content))

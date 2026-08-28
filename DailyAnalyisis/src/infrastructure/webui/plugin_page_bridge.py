@@ -70,12 +70,9 @@ class PluginPageWebUIBridge:
     @staticmethod
     def _read_gscore_webui_enabled() -> bool | None:
         try:
-            from ....plugin_config import group_configs
+            from ....plugin_config import gsconfig
 
-            group_config = group_configs.get("webui")
-            if group_config is None:
-                return None
-            field = group_config.config.get("webui.external_enabled")
+            field = gsconfig.config.get("ExternalWebUIEnabled")
             return bool(field.data) if field is not None else None
         except Exception:
             return None

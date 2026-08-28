@@ -1157,7 +1157,7 @@ class ConfigManager:
 
     def get_report_template(self) -> str:
         """获取报告模板名称"""
-        return self._get_group("basic").get("report_template", "scrapbook")
+        return self._get_group("basic").get("report_template", "ATRI")
 
     def set_report_template(self, template_name: str):
         """设置报告模板名称"""

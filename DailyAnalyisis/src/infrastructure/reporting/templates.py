@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import random
 import threading
 from pathlib import Path
 from typing import Any
@@ -33,8 +34,8 @@ class HTMLTemplates:
         self._env_lock = threading.Lock()
 
     KNOWN_TEMPLATE_NAMES: dict[str, str] = {
-        "scrapbook": "手账风格 (Scrapbook / 默认)",
-        "ATRI": "亚托莉 (ATRI)",
+        "scrapbook": "手账风格 (Scrapbook)",
+        "ATRI": "亚托莉 (ATRI / 默认)",
         "HatsuneMiku": "初音未来 (HatsuneMiku)",
         "spring_festival": "新春佳节 (Spring Festival)",
         "retro_futurism": "复古未来 (Retro Futurism)",
@@ -43,9 +44,23 @@ class HTMLTemplates:
         "simple": "极简黑白 (Simple)",
     }
 
+    def resolve_template_theme(self, template_theme: str | None = None) -> str:
+        """解析固定或随机报告主题，保证一次报告使用同一主题。"""
+        selected = template_theme or self.config_manager.get_report_template()
+        selected = str(selected or "ATRI").strip()
+        if selected.lower() != "random":
+            return selected
+
+        available = [
+            str(item.get("id", "")).strip()
+            for item in self.get_available_templates()
+            if isinstance(item, dict) and str(item.get("id", "")).strip()
+        ]
+        return random.choice(available) if available else "ATRI"
+
     def _get_env_sync(self, template_theme: str | None = None) -> Environment:
         """获取当前配置或指定主题的模板环境（同步版本，供 asyncio.to_thread 调用）"""
-        template_name = template_theme or self.config_manager.get_report_template()
+        template_name = self.resolve_template_theme(template_theme)
 
         # 如果环境已缓存且配置未变（使用锁保证多线程安全）
         with self._env_lock:

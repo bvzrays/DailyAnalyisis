@@ -275,7 +275,12 @@ gsconfig = StringConfig(
             title="启用 DailyAnalyisis",
             desc="关闭后停止命令、消息归档、定时分析和增量分析。",
             data=True,
-        )
+        ),
+        "ExternalWebUIEnabled": GsBoolConfig(
+            title="启用外部 WebUI",
+            desc="默认关闭。开启后才会挂载 DailyAnalyisis 独立 WebUI；首次访问必须设置至少 8 位密码。",
+            data=False,
+        ),
     },
 )
 gsconfig.plugin_name = PLUGIN_NAME
@@ -351,7 +356,11 @@ def _migrate_legacy_gscore_config() -> None:
         target_config.write_config()
         gsconfig.config.pop(old_key)
         changed = True
-    stale_keys = [key for key in gsconfig.config if key != "Enabled"]
+    stale_keys = [
+        key
+        for key in gsconfig.config
+        if key not in {"Enabled", "ExternalWebUIEnabled"}
+    ]
     if stale_keys:
         for key in stale_keys:
             gsconfig.config.pop(key)
@@ -444,6 +453,16 @@ def _sync_gscore_from_config(data: dict) -> None:
         if field.data != value:
             if _assign_gscore_value(field, value):
                 changed_configs[group_config.config_name] = group_config
+    webui = data.get("webui")
+    external_enabled = (
+        bool(webui.get("external_enabled", False))
+        if isinstance(webui, dict)
+        else False
+    )
+    external_field = gsconfig.config.get("ExternalWebUIEnabled")
+    if external_field is not None and external_field.data != external_enabled:
+        if _assign_gscore_value(external_field, external_enabled):
+            changed_configs[gsconfig.config_name] = gsconfig
     for group_config in changed_configs.values():
         group_config.write_config()
 
@@ -457,6 +476,13 @@ def _apply_gscore_to_config(data: dict) -> None:
         value = _from_gscore_value(path, group_config.config[key].data)
         if value is not None:
             _set_nested(data, path, value)
+    external_field = gsconfig.config.get("ExternalWebUIEnabled")
+    if external_field is not None:
+        _set_nested(
+            data,
+            ("webui", "external_enabled"),
+            bool(external_field.data),
+        )
 
 
 def _write_config(data: dict) -> None:

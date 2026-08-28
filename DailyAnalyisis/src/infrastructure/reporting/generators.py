@@ -377,6 +377,7 @@ class ReportGenerator(IReportGenerator):
         """
         html_content = None
         try:
+            template_theme = self.html_templates.resolve_template_theme(template_theme)
             # 准备渲染数据
             render_payload = await self._prepare_render_data(
                 analysis_result,
@@ -386,6 +387,7 @@ class ReportGenerator(IReportGenerator):
                 avatar_cache_namespace=avatar_cache_namespace,
                 hide_user_names=hide_user_names,
                 allow_alphanumeric_user_ids=allow_alphanumeric_user_ids,
+                template_theme=template_theme,
             )
 
             # 先渲染HTML模板（使用 Jinja2 渲染器以支持逻辑标签）
@@ -717,6 +719,8 @@ class ReportGenerator(IReportGenerator):
         try:
             import json
 
+            template_theme = self.html_templates.resolve_template_theme(template_theme)
+
             # 确保输出目录存在（使用 asyncio.to_thread 避免阻塞）
             output_dir = Path(self.config_manager.get_html_output_dir())
             await asyncio.to_thread(output_dir.mkdir, parents=True, exist_ok=True)
@@ -758,6 +762,7 @@ class ReportGenerator(IReportGenerator):
                 avatar_cache_namespace=avatar_cache_namespace,
                 hide_user_names=hide_user_names,
                 allow_alphanumeric_user_ids=allow_alphanumeric_user_ids,
+                template_theme=template_theme,
             )
             logger.debug(f"HTML 渲染数据准备完成，包含 {len(render_data)} 个字段")
 
@@ -1054,6 +1059,7 @@ class ReportGenerator(IReportGenerator):
         avatar_cache_namespace: str | None = None,
         hide_user_names: bool = False,
         allow_alphanumeric_user_ids: bool = False,
+        template_theme: str | None = None,
     ) -> dict:
         """准备渲染数据"""
         stats = analysis_result["statistics"]
@@ -1165,7 +1171,10 @@ class ReportGenerator(IReportGenerator):
         }
 
         topics_html = self.html_templates.render_template(
-            "topic_item.html", topics=topics_list, **common_context
+            "topic_item.html",
+            template_theme=template_theme,
+            topics=topics_list,
+            **common_context,
         )
         logger.debug(f"话题HTML生成完成，长度: {len(topics_html)}")
 
@@ -1212,7 +1221,10 @@ class ReportGenerator(IReportGenerator):
             titles_list.append(title_data)
 
         titles_html = self.html_templates.render_template(
-            "user_title_item.html", titles=titles_list, **common_context
+            "user_title_item.html",
+            template_theme=template_theme,
+            titles=titles_list,
+            **common_context,
         )
         logger.debug(f"用户称号HTML生成完成，长度: {len(titles_html)}")
 
@@ -1262,7 +1274,10 @@ class ReportGenerator(IReportGenerator):
             )
 
         quotes_html = self.html_templates.render_template(
-            "quote_item.html", quotes=quotes_list, **common_context
+            "quote_item.html",
+            template_theme=template_theme,
+            quotes=quotes_list,
+            **common_context,
         )
         logger.debug(f"金句HTML生成完成，长度: {len(quotes_html)}")
 
@@ -1271,7 +1286,10 @@ class ReportGenerator(IReportGenerator):
             activity_viz.hourly_activity
         )
         hourly_chart_html = self.html_templates.render_template(
-            chart_template, chart_data=chart_data, **common_context
+            chart_template,
+            template_theme=template_theme,
+            chart_data=chart_data,
+            **common_context,
         )
         logger.debug(f"活跃度图表HTML生成完成，长度: {len(hourly_chart_html)}")
 
@@ -1329,7 +1347,10 @@ class ReportGenerator(IReportGenerator):
                 }
 
             chat_quality_html = self.html_templates.render_template(
-                "chat_quality_item.html", **review_data, **common_context
+                "chat_quality_item.html",
+                template_theme=template_theme,
+                **review_data,
+                **common_context,
             )
             logger.debug(f"聊天质量锐评HTML生成完成，长度: {len(chat_quality_html)}")
 

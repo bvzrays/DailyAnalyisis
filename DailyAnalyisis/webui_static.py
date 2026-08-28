@@ -14,12 +14,9 @@ WEBUI_ROUTE = "/daily-analyisis-gscore"
 
 def _external_webui_enabled() -> bool:
     try:
-        from .plugin_config import group_configs
+        from .plugin_config import gsconfig
 
-        group_config = group_configs.get("webui")
-        if group_config is None:
-            return False
-        field = group_config.config.get("webui.external_enabled")
+        field = gsconfig.config.get("ExternalWebUIEnabled")
         value: Any = field.data if field is not None else False
         if isinstance(value, str):
             return value.strip().lower() in {"1", "true", "yes", "on"}

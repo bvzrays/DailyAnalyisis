@@ -85,6 +85,7 @@ class ReportDispatcher:
             "html": self._dispatch_html,
             "text": self._dispatch_text,
         }
+        selected_template = self._resolve_template_theme()
         sent_any = False
         format_results: dict[str, bool] = {}
 
@@ -95,7 +96,17 @@ class ReportDispatcher:
                     logger.warning(f"[{trace_id}] 不支持的报告格式: {fmt}")
                     continue
                 try:
-                    ok = bool(await handler(group_id, analysis_result, platform_id))
+                    if fmt in {"image", "html"}:
+                        ok = bool(
+                            await handler(
+                                group_id,
+                                analysis_result,
+                                platform_id,
+                                template_theme=selected_template,
+                            )
+                        )
+                    else:
+                        ok = bool(await handler(group_id, analysis_result, platform_id))
                     format_results[fmt] = ok
                     sent_any = ok or sent_any
                 except Exception as e:
@@ -128,8 +139,23 @@ class ReportDispatcher:
             logger.error(f"[{trace_id}] 群 {group_id} 的报告分发失败，未发送任何报告")
         return sent_any
 
+    def _resolve_template_theme(self) -> str:
+        trace = TraceContext.current()
+        override_theme = trace.metadata.get("override_template_name") if trace else None
+        configured_theme = override_theme or getattr(
+            self.config_manager, "get_report_template", lambda: "ATRI"
+        )()
+        resolver = getattr(self.report_generator.html_templates, "resolve_template_theme", None)
+        if callable(resolver):
+            return str(resolver(configured_theme))
+        return str(configured_theme or "ATRI")
+
     async def _dispatch_image(
-        self, group_id: str, analysis_result: dict[str, Any], platform_id: str | None
+        self,
+        group_id: str,
+        analysis_result: dict[str, Any],
+        platform_id: str | None,
+        template_theme: str | None = None,
     ) -> bool:
         trace_id = TraceContext.get()
         trace_ctx = TraceContext.current()
@@ -151,16 +177,7 @@ class ReportDispatcher:
                     return await adapter.get_user_avatar_url(user_id, size=40)
                 return None
 
-            trace = TraceContext.current()
-            override_theme = (
-                trace.metadata.get("override_template_name") if trace else None
-            )
-            template_theme = (
-                override_theme
-                or getattr(
-                    self.config_manager, "get_report_template", lambda: "scrapbook"
-                )()
-            )
+            template_theme = template_theme or self._resolve_template_theme()
 
             if trace:
                 with trace.span(
@@ -283,7 +300,11 @@ class ReportDispatcher:
         return await self._dispatch_text(group_id, analysis_result, platform_id)
 
     async def _dispatch_html(
-        self, group_id: str, analysis_result: dict[str, Any], platform_id: str | None
+        self,
+        group_id: str,
+        analysis_result: dict[str, Any],
+        platform_id: str | None,
+        template_theme: str | None = None,
     ) -> bool:
         trace_id = TraceContext.get()
         trace_ctx = TraceContext.current()
@@ -299,16 +320,7 @@ class ReportDispatcher:
                     return await adapter.get_user_avatar_url(user_id, size=40)
                 return None
 
-            trace = TraceContext.current()
-            override_theme = (
-                trace.metadata.get("override_template_name") if trace else None
-            )
-            template_theme = (
-                override_theme
-                or getattr(
-                    self.config_manager, "get_report_template", lambda: "scrapbook"
-                )()
-            )
+            template_theme = template_theme or self._resolve_template_theme()
 
             if trace:
                 with trace.span(

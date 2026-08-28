@@ -1296,12 +1296,15 @@ class GroupDailyAnalysis(PluginBase):
             template_list_str = "\n".join(
                 [f"【{i}】{t}" for i, t in enumerate(available_templates, start=1)]
             )
+            random_hint = "【随机】随机模板（每份报告随机选择一个可用主题）"
             yield event.plain_result(f"""🎨 当前报告模板: {current_template}
 
 可用模板:
+{random_hint}
 {template_list_str}
 
 用法: day设置模板 [模板名称或序号]
+随机模式: day设置模板 随机
 💡 使用 day查看模板 查看预览图""")
             return
 
@@ -1316,12 +1319,15 @@ class GroupDailyAnalysis(PluginBase):
             yield event.plain_result(f"❌ 无法解析模板输入: {template_input}")
             return
 
-        if not await self.template_command_service.template_exists(template_name):
+        if template_name != "random" and not await self.template_command_service.template_exists(template_name):
             yield event.plain_result(f"❌ 模板 '{template_name}' 不存在")
             return
 
         self.config_manager.set_report_template(template_name)
-        yield event.plain_result(f"✅ 报告模板已设置为: {template_name}")
+        if template_name == "random":
+            yield event.plain_result("✅ 报告模板已设置为: 随机（每份报告随机选择一个可用主题）")
+        else:
+            yield event.plain_result(f"✅ 报告模板已设置为: {template_name}")
 
     async def view_templates(self, event: PluginMessageEvent):
         """
