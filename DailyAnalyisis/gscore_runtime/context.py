@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import re
 import json
+import base64
+import asyncio
+import hashlib
+import mimetypes
 from types import SimpleNamespace
 from collections.abc import AsyncIterator
 
@@ -21,6 +25,10 @@ _SVG_DIMENSION_RE = re.compile(
 )
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
 _IMG_SRC_RE = re.compile(r"\bsrc\s*=\s*(['\"])(.*?)\1", re.IGNORECASE | re.DOTALL)
+_CSS_URL_RE = re.compile(
+    r"url\(\s*(?P<quote>['\"]?)(?P<url>[^)'\"]+)(?P=quote)\s*\)",
+    re.IGNORECASE,
+)
 _UPLOADED_URL_RE = re.compile(
     r"url\(\s*(['\"])uploaded:[^)]*?\1\s*\)", re.IGNORECASE
 )
@@ -38,9 +46,125 @@ def _protect_inline_icons(html: str) -> str:
         if _DOODLE_CLASS_RE.search(tag) is None:
             return tag
         without_dimensions = _SVG_DIMENSION_RE.sub("", tag)
-        return without_dimensions[:-1] + ' width="100%" height="100%">'
+        return without_dimensions[:-1] + ' width="1em" height="1em">'
 
     return _SVG_OPEN_TAG_RE.sub(replace_tag, html)
+
+
+def _is_inlineable_asset_url(url: str) -> bool:
+    normalized = url.strip().lower().split("?", 1)[0]
+    if not normalized.startswith(("http://", "https://")):
+        return False
+    if any(
+        normalized.endswith(suffix)
+        for suffix in (".css", ".js", ".woff", ".woff2", ".ttf", ".otf", ".html")
+    ):
+        return False
+    if "github.com/" in normalized or "unpkg.com/" in normalized:
+        return False
+    return (
+        any(normalized.endswith(suffix) for suffix in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg"))
+        or "/file/" in normalized
+        or "profile_assets" in normalized
+    )
+
+
+def _asset_cache_paths(url: str):
+    cache_dir = PluginPaths.get_data_dir() / "render_assets"
+    digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
+    return cache_dir, cache_dir / f"{digest}.bin", cache_dir / f"{digest}.json"
+
+
+async def _fetch_render_asset(
+    session: aiohttp.ClientSession,
+    url: str,
+) -> str | None:
+    cache_dir, data_path, meta_path = _asset_cache_paths(url)
+    try:
+        if data_path.is_file() and meta_path.is_file():
+            payload = await asyncio.to_thread(data_path.read_bytes)
+            metadata = json.loads(await asyncio.to_thread(meta_path.read_text, encoding="utf-8"))
+            mime = str(metadata.get("content_type", "application/octet-stream"))
+            return f"data:{mime};base64,{base64.b64encode(payload).decode('ascii')}"
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    try:
+        async with session.get(url, allow_redirects=True) as response:
+            if response.status >= 400:
+                return None
+            payload = await response.read()
+            if not payload or len(payload) > 12 * 1024 * 1024:
+                return None
+            mime = response.headers.get("Content-Type", "").split(";", 1)[0].strip()
+            if not mime:
+                mime = mimetypes.guess_type(url.split("?", 1)[0])[0] or "application/octet-stream"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            await asyncio.to_thread(data_path.write_bytes, payload)
+            await asyncio.to_thread(
+                meta_path.write_text,
+                json.dumps({"content_type": mime}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            return f"data:{mime};base64,{base64.b64encode(payload).decode('ascii')}"
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
+        return None
+
+
+async def inline_render_assets(html: str) -> str:
+    """将报告依赖的图片资源内联，避免 Takumi/浏览器无法读取外链。"""
+    if not html:
+        return html
+
+    candidates: set[str] = set()
+    for match in _IMG_TAG_RE.finditer(html):
+        src_match = _IMG_SRC_RE.search(match.group(0))
+        if src_match and _is_inlineable_asset_url(src_match.group(2)):
+            candidates.add(src_match.group(2).strip())
+    for match in _CSS_URL_RE.finditer(html):
+        url = match.group("url").strip()
+        if _is_inlineable_asset_url(url):
+            candidates.add(url)
+    if not candidates:
+        return sanitize_rendered_html(html)
+
+    timeout = aiohttp.ClientTimeout(total=30, connect=10)
+    connector = aiohttp.TCPConnector(limit=6, ssl=False)
+    async with aiohttp.ClientSession(timeout=timeout, connector=connector, trust_env=True) as session:
+        results = await asyncio.gather(
+            *(_fetch_render_asset(session, url) for url in sorted(candidates)),
+            return_exceptions=True,
+        )
+    resource_map = {
+        url: result
+        for url, result in zip(sorted(candidates), results)
+        if isinstance(result, str) and result
+    }
+
+    def replace_img(match: re.Match[str]) -> str:
+        tag = match.group(0)
+        src_match = _IMG_SRC_RE.search(tag)
+        if src_match is None:
+            return tag
+        source = src_match.group(2).strip()
+        if source in resource_map:
+            start, end = src_match.span(2)
+            return tag[:start] + resource_map[source] + tag[end:]
+        return tag
+
+    html = _IMG_TAG_RE.sub(replace_img, html)
+
+    def replace_css(match: re.Match[str]) -> str:
+        url = match.group("url").strip()
+        if url.startswith("uploaded:"):
+            return "none"
+        replacement = resource_map.get(url)
+        if replacement:
+            return f"url('{replacement}')"
+        return match.group(0)
+
+    html = _CSS_URL_RE.sub(replace_css, html)
+    return sanitize_rendered_html(html)
 
 
 def _usage_from_entries(entries: list[object]) -> LLMUsage:
@@ -65,13 +189,13 @@ def sanitize_rendered_html(html: str) -> str:
         src_match = _IMG_SRC_RE.search(tag)
         if src_match is None:
             return tag[:-1] + f' src="{_FALLBACK_IMAGE_DATA}">'
-        if not src_match.group(2).strip():
+        if not src_match.group(2).strip() or src_match.group(2).strip().startswith("uploaded:"):
             start, end = src_match.span(2)
             return tag[:start] + _FALLBACK_IMAGE_DATA + tag[end:]
         return tag
 
     html = _IMG_TAG_RE.sub(replace_img, html)
-    return _UPLOADED_URL_RE.sub(f"url('{_FALLBACK_IMAGE_DATA}')", html)
+    return _UPLOADED_URL_RE.sub("none", html)
 
 
 class _Provider:
@@ -270,6 +394,7 @@ class _CronManager:
 
 class PluginContext:
     def __init__(self, config: PluginConfig) -> None:
+        self.config = config
         self.cron_manager = _CronManager()
         self._provider = _Provider(config)
         self.persona_manager = None
@@ -295,10 +420,11 @@ class PluginContext:
         handler,
         methods,
         description: str = "",
+        authenticator=None,
     ) -> None:
         from .web import register_route
 
-        register_route(path, handler, methods, description)
+        register_route(path, handler, methods, description, authenticator=authenticator)
 
 
 class PluginBase:
@@ -337,12 +463,13 @@ class PluginBase:
         width = float(viewport.get("width", 1200))
         image_type = str(opts.get("type", "jpeg")).lower()
         image_format = "jpeg" if image_type in {"jpg", "jpeg"} else "png"
+        prepared_html = await inline_render_assets(tmpl)
         return await render_html_to_bytes(
-            sanitize_rendered_html(_protect_inline_icons(tmpl)),
+            _protect_inline_icons(prepared_html),
             max_width=width,
             image_format=image_format,
             jpeg_quality=int(opts.get("quality", 95)),
         )
 
 
-__all__ = ["PluginBase", "PluginContext"]
+__all__ = ["PluginBase", "PluginContext", "inline_render_assets"]

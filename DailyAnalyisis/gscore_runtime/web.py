@@ -20,6 +20,21 @@ class _QueryProxy:
 class _RequestProxy:
     query = _QueryProxy()
 
+    @property
+    def headers(self):
+        current = _current_request.get()
+        return current.headers if current is not None else {}
+
+    @property
+    def cookies(self):
+        current = _current_request.get()
+        return current.cookies if current is not None else {}
+
+    @property
+    def scheme(self) -> str:
+        current = _current_request.get()
+        return current.url.scheme if current is not None else "http"
+
     async def json(self, default=None):
         current = _current_request.get()
         if current is None:
@@ -50,6 +65,7 @@ def register_route(
     handler,
     methods: list[str],
     description: str = "",
+    authenticator=None,
 ) -> None:
     from gsuid_core.webconsole.app_app import app
 
@@ -62,6 +78,8 @@ def register_route(
     async def endpoint(raw_request: Request, trace_id: str | None = None):
         token = _current_request.set(raw_request)
         try:
+            if authenticator is not None and not authenticator.is_authenticated():
+                return authenticator.unauthorized_response()
             if trace_id is None:
                 return await handler()
             return await handler(trace_id)

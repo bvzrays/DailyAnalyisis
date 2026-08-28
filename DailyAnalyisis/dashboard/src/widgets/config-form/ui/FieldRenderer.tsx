@@ -77,7 +77,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
         onFocus={() => {
           if (currentVal === "********") onChange("");
         }}
-        placeholder="输入新 Key；留空保留当前 Key"
+        placeholder={fieldKey.toLowerCase().includes("password") ? "输入新密码；留空保留当前密码" : "输入新 Key；留空保留当前 Key"}
         style={{ fontFamily: SANS_MONO_FONT }}
       />
     );

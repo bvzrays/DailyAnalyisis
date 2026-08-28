@@ -158,6 +158,20 @@
             }
         }
     },
+    "webui": {
+        "description": "WebUI 安全设置",
+        "type": "object",
+        "hint": "WebUI 可能通过公网访问，首次打开时必须设置密码。密码只保存为不可逆摘要，不会以明文写入配置。修改后会影响 WebUI 登录。",
+        "items": {
+            "password": {
+                "type": "string",
+                "description": "WebUI 访问密码",
+                "secret": true,
+                "default": "",
+                "hint": "首次进入 WebUI 时设置；以后可在这里输入新密码并保存。至少 8 个字符，留空表示保留当前密码。"
+            }
+        }
+    },
     "qq_official": {
         "description": "QQ 官方机器人",
         "type": "object",

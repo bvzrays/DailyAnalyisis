@@ -2,28 +2,27 @@
 
 from __future__ import annotations
 
-import asyncio
-import base64
-import json
 import re
+import json
 import time
-from pathlib import Path
+import base64
+import asyncio
 from typing import Any
+from pathlib import Path
 
+from ...utils.logger import logger
 from ....gscore_runtime import PluginContext
+from ...shared.constants import PLUGIN_ROUTE
+from .active_task_manager import ActiveTaskManager
 from ....gscore_runtime.web import (
-    error_response,
-    json_response,
     request,
+    json_response,
+    error_response,
     stream_response,
 )
-
-
-from ...shared.constants import PLUGIN_ROUTE
+from ....gscore_runtime.auth import WebUIAuthenticator
 from ...shared.trace_context import TraceContext
-from ...utils.logger import logger
 from ..persistence.trace_sqlite_store import TraceSQLiteStore
-from .active_task_manager import ActiveTaskManager
 
 
 class PluginPageWebUIBridge:
@@ -44,7 +43,28 @@ class PluginPageWebUIBridge:
         self.analysis_service = analysis_service
         self.report_dispatcher = report_dispatcher
         self.report_output_dir = report_output_dir
+        config_manager = getattr(analysis_service, "config_manager", None) or getattr(
+            report_dispatcher, "config_manager", None
+        )
+        config = getattr(config_manager, "config", None) or getattr(context, "config", {})
+        self.authenticator = WebUIAuthenticator(
+            config,
+            password_reader=self._read_gscore_webui_password,
+        )
         TraceContext.set_active_task_manager(self.active_task_manager)
+
+    @staticmethod
+    def _read_gscore_webui_password() -> str | None:
+        try:
+            from ....plugin_config import group_configs
+
+            group_config = group_configs.get("webui")
+            if group_config is None:
+                return None
+            field = group_config.config.get("webui.password")
+            return str(field.data) if field is not None else None
+        except Exception:
+            return None
 
     @staticmethod
     def _mask_config_secrets(config: dict[str, Any]) -> dict[str, Any]:
@@ -55,10 +75,48 @@ class PluginPageWebUIBridge:
             if str(masked_llm.get("api_key", "")).strip():
                 masked_llm["api_key"] = "********"
             masked["llm"] = masked_llm
+        webui = masked.get("webui")
+        if isinstance(webui, dict):
+            masked_webui = dict(webui)
+            if str(masked_webui.get("password", "")).strip():
+                masked_webui["password"] = "********"
+            masked["webui"] = masked_webui
         return masked
 
     def register_routes(self) -> None:
         """向 GsCore 注册所有 Web API 端点。"""
+        public_routes = [
+            (
+                f"/{PLUGIN_ROUTE}/auth/status",
+                self.api_auth_status,
+                ["GET"],
+                "Get WebUI authentication status",
+            ),
+            (
+                f"/{PLUGIN_ROUTE}/auth/setup",
+                self.api_auth_setup,
+                ["POST"],
+                "Set the initial WebUI password",
+            ),
+            (
+                f"/{PLUGIN_ROUTE}/auth/login",
+                self.api_auth_login,
+                ["POST"],
+                "Log in to the WebUI",
+            ),
+            (
+                f"/{PLUGIN_ROUTE}/auth/logout",
+                self.api_auth_logout,
+                ["POST"],
+                "Log out from the WebUI",
+            ),
+        ]
+        for path, handler, methods, desc in public_routes:
+            try:
+                self.context.register_web_api(path, handler, methods, desc)  # type: ignore
+            except Exception as e:
+                logger.error(f"注册 Web API 路由 {path} 失败: {e}")
+
         routes = [
             # 1. 活跃任务与控制
             (
@@ -202,7 +260,13 @@ class PluginPageWebUIBridge:
 
         for path, handler, methods, desc in routes:
             try:
-                self.context.register_web_api(path, handler, methods, desc)  # type: ignore
+                self.context.register_web_api(
+                    path,
+                    handler,
+                    methods,
+                    desc,
+                    authenticator=self.authenticator,
+                )  # type: ignore
             except Exception as e:
                 logger.error(f"注册 Web API 路由 {path} 失败: {e}")
 
@@ -224,6 +288,27 @@ class PluginPageWebUIBridge:
             global_log_buffer.register_listener(_forward_log_to_sse)
         except Exception as e:
             logger.warning(f"挂载日志 SSE 监听器失败: {e}")
+
+    async def api_auth_status(self) -> Any:
+        return self.authenticator.status_response()
+
+    async def api_auth_setup(self) -> Any:
+        payload = await request.json(default={})
+        if not isinstance(payload, dict):
+            return error_response("请求数据格式无效", status_code=400)
+        return self.authenticator.setup(
+            str(payload.get("password", "")),
+            str(payload.get("confirmation", "")),
+        )
+
+    async def api_auth_login(self) -> Any:
+        payload = await request.json(default={})
+        if not isinstance(payload, dict):
+            return error_response("请求数据格式无效", status_code=400)
+        return self.authenticator.login(str(payload.get("password", "")))
+
+    async def api_auth_logout(self) -> Any:
+        return self.authenticator.logout()
 
     async def api_get_active_tasks(self) -> Any:
         """获取当前正在执行的任务列表"""
@@ -1386,6 +1471,24 @@ class PluginPageWebUIBridge:
                     current_llm = cfg_mgr.config.get("llm", {})
                     if isinstance(current_llm, dict):
                         v = {**v, "api_key": current_llm.get("api_key", "")}
+                if k == "webui" and isinstance(v, dict):
+                    current_webui = cfg_mgr.config.get("webui", {})
+                    current_password = (
+                        current_webui.get("password", "")
+                        if isinstance(current_webui, dict)
+                        else ""
+                    )
+                    submitted_password = str(v.get("password", "")).strip()
+                    prepared_webui = dict(v)
+                    if submitted_password == "********":
+                        prepared_webui["password"] = current_password
+                    elif submitted_password:
+                        prepared_webui["password"] = self.authenticator.hash_password(
+                            submitted_password
+                        )
+                    elif current_password:
+                        prepared_webui["password"] = current_password
+                    v = prepared_webui
                 cfg_mgr.config[k] = v
 
             # 持久化保存

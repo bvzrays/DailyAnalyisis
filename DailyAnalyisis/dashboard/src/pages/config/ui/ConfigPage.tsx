@@ -29,7 +29,7 @@ const { Title, Text, Paragraph } = Typography;
 const CONFIG_SECTIONS = [
   {
     title: "基础配置",
-    keys: ["basic", "auto_analysis", "llm", "analysis_features", "incremental", "performance"],
+    keys: ["basic", "webui", "auto_analysis", "llm", "analysis_features", "incremental", "performance"],
   },
   {
     title: "展示配置",

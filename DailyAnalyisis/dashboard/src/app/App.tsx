@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ConfigProvider, Tabs, theme } from "antd";
+import { Alert, Button, Card, ConfigProvider, Input, Space, Spin, Tabs, Typography, message, theme } from "antd";
 import {
   DashboardOutlined,
   ApartmentOutlined,
@@ -30,6 +30,11 @@ import { useConfigViewModel } from "../pages/config/model/useConfigViewModel";
 import { invalidateTraceCache } from "../entities/trace/api/traceApi";
 import { invalidateGroupsCache } from "../entities/group/api/groupApi";
 import { ActiveTask } from "../entities/task/model/types";
+import {
+  fetchWebUIAuthStatus,
+  loginWebUI,
+  setupWebUIPassword,
+} from "../entities/config/api/configApi";
 
 const TASK_PROGRESS_EVENTS = new Set(["task_started", "task_progress"]);
 const TASK_TERMINAL_EVENTS = new Set([
@@ -38,7 +43,7 @@ const TASK_TERMINAL_EVENTS = new Set([
   "task_timed_out",
 ]);
 
-export const App: React.FC = () => {
+const DashboardApp: React.FC = () => {
   const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
@@ -278,4 +283,149 @@ export const App: React.FC = () => {
       </div>
     </ConfigProvider>
   );
+};
+
+interface WebUIAuthPageProps {
+  configured: boolean;
+  onAuthenticated: () => void;
+}
+
+const WebUIAuthPage: React.FC<WebUIAuthPageProps> = ({
+  configured,
+  onAuthenticated,
+}) => {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      if (configured) {
+        await loginWebUI(password);
+        message.success("WebUI 登录成功");
+      } else {
+        await setupWebUIPassword(password, confirmation);
+        message.success("WebUI 密码设置成功");
+      }
+      onAuthenticated();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "认证请求失败");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        background: "#f5f7fb",
+      }}
+    >
+      <Card style={{ width: "100%", maxWidth: 420 }}>
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <div>
+            <Typography.Title level={3} style={{ margin: 0 }}>
+              DailyAnalyisis WebUI
+            </Typography.Title>
+            <Typography.Paragraph type="secondary" style={{ margin: "8px 0 0" }}>
+              {configured
+                ? "请输入 WebUI 密码后继续。"
+                : "这是第一次进入 WebUI，请先设置一个访问密码。"}
+            </Typography.Paragraph>
+          </div>
+          {!configured && (
+            <Alert
+              type="warning"
+              showIcon
+              message="公网访问安全提示"
+              description="密码只保存为不可逆摘要。请使用至少 8 个字符，并建议通过 HTTPS 暴露 WebUI。"
+            />
+          )}
+          <Input.Password
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            onPressEnter={() => {
+              if (configured) void handleSubmit();
+            }}
+            placeholder={configured ? "WebUI 访问密码" : "设置 WebUI 访问密码"}
+            autoFocus
+          />
+          {!configured && (
+            <Input.Password
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              onPressEnter={() => void handleSubmit()}
+              placeholder="再次输入密码"
+            />
+          )}
+          <Button
+            type="primary"
+            block
+            loading={submitting}
+            onClick={() => void handleSubmit()}
+          >
+            {configured ? "登录 WebUI" : "设置密码并进入"}
+          </Button>
+        </Space>
+      </Card>
+    </div>
+  );
+};
+
+export const App: React.FC = () => {
+  const [loading, setLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState<{
+    configured: boolean;
+    authenticated: boolean;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchWebUIAuthStatus()
+      .then((status) => setAuthStatus(status))
+      .catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : "无法连接 WebUI 认证服务");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <Spin tip="正在检查 WebUI 安全状态" />
+      </div>
+    );
+  }
+
+  if (error || !authStatus) {
+    return (
+      <div style={{ maxWidth: 520, margin: "15vh auto", padding: 20 }}>
+        <Alert
+          type="error"
+          showIcon
+          message="WebUI 无法启动"
+          description={error || "认证服务没有返回有效状态，请检查 GsCore 与插件是否已重载。"}
+        />
+      </div>
+    );
+  }
+
+  if (!authStatus.authenticated) {
+    return (
+      <WebUIAuthPage
+        configured={authStatus.configured}
+        onAuthenticated={() =>
+          setAuthStatus({ ...authStatus, configured: true, authenticated: true })
+        }
+      />
+    );
+  }
+
+  return <DashboardApp />;
 };

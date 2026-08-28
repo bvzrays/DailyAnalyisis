@@ -19,6 +19,7 @@ from gsuid_core.utils.plugins_config.models import (
 from gsuid_core.utils.plugins_config.gs_config import StringConfig, all_config_list
 
 from .gscore_runtime import PluginPaths, PluginConfig
+from .gscore_runtime.auth import WebUIAuthenticator
 from .src.shared.constants import PLUGIN_NAME
 
 PLUGIN_ROOT = Path(__file__).resolve().parent
@@ -39,6 +40,7 @@ PluginPaths.set_data_dir(DATA_DIR)
 
 _GROUP_CONFIG_NAMES = {
     "basic": "群分析·基础设置",
+    "webui": "群分析·WebUI安全",
     "qq_official": "群分析·QQ官方",
     "t2i_rendering": "群分析·图片渲染",
     "auto_analysis": "群分析·定时分析",
@@ -53,7 +55,15 @@ _GROUP_CONFIG_NAMES = {
 }
 
 _NATIVE_GROUP_MEMBERS = {
-    "DailyAnalyisis基础配置": {"basic", "auto_analysis", "llm", "analysis_features", "incremental", "performance"},
+    "DailyAnalyisis基础配置": {
+        "basic",
+        "webui",
+        "auto_analysis",
+        "llm",
+        "analysis_features",
+        "incremental",
+        "performance",
+    },
     "DailyAnalyisis展示配置": {"qq_official", "t2i_rendering", "daily_comic", "html", "qq_group_upload", "prompts"},
 }
 
@@ -450,6 +460,25 @@ def _apply_gscore_to_config(data: dict) -> None:
 
 
 def _write_config(data: dict) -> None:
+    webui = data.get("webui")
+    if isinstance(webui, dict):
+        password = str(webui.get("password", "")).strip()
+        if password == "********" and CONFIG_PATH.exists():
+            try:
+                previous = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+                previous_webui = previous.get("webui", {})
+                previous_password = (
+                    previous_webui.get("password", "")
+                    if isinstance(previous_webui, dict)
+                    else ""
+                )
+                if str(previous_password).startswith("pbkdf2_sha256$"):
+                    password = str(previous_password)
+                    webui["password"] = password
+            except (OSError, json.JSONDecodeError):
+                pass
+        if password and not password.startswith("pbkdf2_sha256$"):
+            webui["password"] = WebUIAuthenticator.hash_password(password)
     temporary = CONFIG_PATH.with_suffix(".tmp")
     temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     temporary.replace(CONFIG_PATH)
@@ -480,6 +509,11 @@ def load_config() -> PluginConfig:
         _apply_gscore_to_config(merged)
     else:
         _sync_gscore_from_config(merged)
+    webui = merged.get("webui")
+    if isinstance(webui, dict):
+        password = str(webui.get("password", "")).strip()
+        if password and not password.startswith("pbkdf2_sha256$"):
+            webui["password"] = WebUIAuthenticator.hash_password(password)
     _write_config(merged)
     return PluginConfig(merged, save_callback=_write_config)
 

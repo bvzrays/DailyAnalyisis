@@ -607,11 +607,14 @@
             flex-direction: column;
             width: 100%;
             max-width: 88%;
+            align-items: stretch;
             position: relative;
         }
 
         .q-flex-container {
             display: flex;
+            width: 100%;
+            min-width: 0;
             gap: 12px;
             align-items: flex-start;
         }
@@ -726,7 +729,7 @@
 
         .quote-wrapper:nth-child(even) {
             align-self: flex-end;
-            align-items: flex-end;
+            align-items: stretch;
         }
 
         .quote-wrapper:nth-child(even) .q-flex-container {

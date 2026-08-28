@@ -1,6 +1,48 @@
 import { apiGet, apiPost, extractData } from "../../../shared/api/bridge";
 import { PluginConfigData } from "../model/types";
 
+export interface WebUIAuthStatus {
+  configured: boolean;
+  authenticated: boolean;
+}
+
+async function authRequest(
+  action: string,
+  body?: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const response = await fetch(`/api/daily_analyisis/auth/${action}`, {
+    method: body ? "POST" : "GET",
+    credentials: "same-origin",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const payload = (await response.json()) as Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(String(payload.message || `HTTP ${response.status}`));
+  }
+  return payload;
+}
+
+export async function fetchWebUIAuthStatus(): Promise<WebUIAuthStatus> {
+  const payload = await authRequest("status");
+  const data = (payload.data || {}) as Record<string, unknown>;
+  return {
+    configured: Boolean(data.configured),
+    authenticated: Boolean(data.authenticated),
+  };
+}
+
+export async function setupWebUIPassword(
+  password: string,
+  confirmation: string
+): Promise<void> {
+  await authRequest("setup", { password, confirmation });
+}
+
+export async function loginWebUI(password: string): Promise<void> {
+  await authRequest("login", { password });
+}
+
 export interface AvailableProvider {
   id: string;
   name: string;

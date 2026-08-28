@@ -92,7 +92,8 @@ uv run core
 
 - 提供运行总览、活跃任务、分析记录、统计消耗、历史报告、日志和完整配置中心。
 - 配置页面直接读取最新版 `_conf_schema.json`，12 个配置组、101 个叶子配置全部可编辑。
-- WebUI 与 22 个插件 API 直接挂载到 GsCore 的 FastAPI 应用。
+- WebUI 与 26 个插件 API 直接挂载到 GsCore 的 FastAPI 应用。
+- WebUI 首次访问必须设置独立密码，业务 API 全部受密码会话保护。
 
 </p></details>
 
@@ -129,6 +130,7 @@ uv run core
 | 配置组 | 主要内容 |
 |---|---|
 | 基础设置 | 群名单、分析天数、消息阈值、输出格式、模板、用户卡片和调试开关 |
+| WebUI 安全 | 首次访问密码、会话保护和公网访问安全设置 |
 | QQ 官方机器人 | QQ 官方 Markdown 报告概览图 |
 | 图片渲染策略 | 两轮渲染格式、质量、缩放、超时、视口和字体源 |
 | 定时分析设置 | 定时时间、目标群名单与继承模式 |
@@ -144,10 +146,12 @@ uv run core
 完整配置入口：
 
 - GsCore WebConsole：插件配置 → `DailyAnalyisis`
-- 插件 WebUI：`http://localhost:8765/daily-analyisis-gscore/`
+- 插件 WebUI：`http://127.0.0.1:8765/daily-analyisis-gscore/`
 - 本地数据：`data/DailyAnalyisis/config.json`
 
 WebConsole 参数区按“总览、基础配置、展示配置”拆分为 3 个原生配置标签；其中基础配置和展示配置内部仍按功能分隔，并保留全部 schema 字段。插件 WebUI 同样按两栏导航展示，不需要在单一长表单中查找。配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
+
+WebUI 面向公网使用时，第一次进入页面会要求设置独立访问密码；密码只以 PBKDF2-SHA256 摘要保存，不会写入明文。之后可在 GsCore WebConsole 的 `DailyAnalyisis基础配置 → 群分析·WebUI安全 → WebUI访问密码` 中输入新密码，保存后立即生效并使旧会话失效。公网部署还应使用 HTTPS 和反向代理，不要直接暴露未加密的 HTTP。
 
 ## 丨AI 配置
 
@@ -177,7 +181,7 @@ API Key 只应保存在本机 `data/DailyAnalyisis/config.json`，不要提交�
 默认 GsCore 端口为 `8765`，插件页面地址：
 
 ```text
-http://localhost:8765/daily-analyisis-gscore/
+http://127.0.0.1:8765/daily-analyisis-gscore/
 ```
 
 API 前缀：
@@ -187,6 +191,8 @@ API 前缀：
 ```
 
 请求由 GsCore FastAPI 直接处理，WebUI 不依赖任何外部宿主页面桥。
+
+页面首次打开时先设置 WebUI 密码；已经设置过密码时先登录才能进入控制台。密码配置也可以在 GsCore WebConsole 的 `DailyAnalyisis基础配置` 中直接修改。若通过反向代理公网暴露，请同时配置 HTTPS、访问控制和合理的代理超时。
 
 ## 丨数据目录
 
