@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://github.com/bvzrays/DailyAnalyisis"><img src="./ICON.png" width="256" height="256" alt="DailyAnalyisis"></a>
 </p>
-<h1 align="center">DailyAnalyisis 5.0.9</h1>
+<h1 align="center">DailyAnalyisis 5.0.10</h1>
 <h4 align="center">✨ 面向 GsCore / 早柚核心的群聊分析、可视化日报与每日群漫画插件 ✨</h4>
 <div align="center">
   <a href="https://docs.sayu-bot.com/" target="_blank">GsCore 文档</a> &nbsp; · &nbsp;
@@ -140,6 +140,8 @@ uv run core
 | `day设置格式 [格式]` | `set_format` | 查看或设置 `image`、`text`、`html`，支持逗号组合 |
 | `day设置模板 [名称/序号/随机]` | `set_template` | 查看当前模板或切换报告模板；新安装默认 ATRI，可设置为随机 |
 | `day查看模板` | `view_templates` | 查看全部报告模板及预览 |
+| `day帮助` | `help` | 查看插件指令、配置和 WebUI 使用说明 |
+| `day更新日志` | `changelog` | 查看当前版本和最近版本更新内容 |
 | `day分析设置 [动作]` | `analysis_settings` | 管理当前群分析状态与调试开关 |
 | `day增量状态` | `incremental_status` | 查看当前滑动窗口内的增量分析状态 |
 | `day概览` | `overview` | 以图片查看运行总览、统计、Token/成本消耗和当前任务 |
@@ -198,6 +200,8 @@ WebConsole 参数区按“总览、基础配置、展示配置”拆分为 3 个
 4. 保存配置后，新请求立即使用插件配置；如运行中的任务仍持有旧配置，重载插件后再测试。
 
 API Key 只应保存在本机 `data/DailyAnalyisis/config.json`，不要提交到插件仓库或公开日志。
+
+新安装默认 API 端点为 [`https://chisa.akiyo.fun/v1`](https://chisa.akiyo.fun/v1)，这是一个可直接使用的 OpenAI 兼容站点。已有安装会保留原有端点，需要在配置中心手动改为该地址。
 
 > [!NOTE]
 > 分析模型与绘图模型可以使用同一 API 地址，但绘图模型本身必须支持生图。若服务端对 `/images/generations` 返回“不支持该模型”，或 Chat API 仅返回文本，日报分析仍可正常运行，漫画则不会产生最终图片。

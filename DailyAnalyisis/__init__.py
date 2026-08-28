@@ -84,12 +84,24 @@ async def show_overview(bot: Bot, event: Event) -> None:
     await runtime.invoke("show_overview", bot, event)
 
 
+@admin_sv.on_command(("帮助", "help"), block=True)
+async def show_help(bot: Bot, event: Event) -> None:
+    await runtime.invoke("show_help", bot, event)
+
+
+@admin_sv.on_command(("更新日志", "changelog"), block=True)
+async def show_changelog(bot: Bot, event: Event) -> None:
+    await runtime.invoke("show_changelog", bot, event)
+
+
 __all__ = [
     "analysis_settings",
     "analyze_group_daily",
     "archive_group_message",
     "generate_group_comic",
     "incremental_status",
+    "show_changelog",
+    "show_help",
     "set_output_format",
     "set_report_template",
     "show_overview",

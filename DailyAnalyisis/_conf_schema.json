@@ -371,8 +371,8 @@
             "api_url": {
                 "type": "string",
                 "description": "插件专用 API 端点 URL",
-                "default": "https://api.openai.com/v1",
-                "hint": "填写 OpenAI 兼容接口的根地址，例如 https://example.com/v1；插件会自动请求 /chat/completions。"
+                "default": "https://chisa.akiyo.fun/v1",
+                "hint": "填写 OpenAI 兼容接口的根地址，例如 https://chisa.akiyo.fun/v1；插件会自动请求 /chat/completions。可使用 Chisa 站点提供的兼容接口。"
             },
             "model": {
                 "type": "string",

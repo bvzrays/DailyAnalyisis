@@ -22,7 +22,7 @@ from .gscore_runtime import (
     PluginMessageEvent,
 )
 from .src.utils.logger import logger
-from .src.shared.constants import PLUGIN_NAME
+from .src.shared.constants import PLUGIN_NAME, PLUGIN_VERSION
 from .src.utils.resilience import GlobalRateLimiter
 from .src.shared.trace_context import TraceContext
 from .src.domain.services.statistics_service import StatisticsService
@@ -1353,6 +1353,59 @@ class GroupDailyAnalysis(PluginBase):
             bot_id=bot_id,
         )
         yield event.chain_result([preview_nodes])
+
+    async def show_help(self, event: PluginMessageEvent):
+        """发送插件指令与配置帮助。"""
+        event.should_call_llm(True)
+        yield event.plain_result(
+            """📖 DailyAnalyisis 帮助
+
+指令前缀: day
+
+📊 群分析
+day群分析 [天数]        生成群聊分析报告
+day群漫画 [天数]        单独生成每日群漫画
+day概览                 发送运行总览、统计与消耗图片
+
+🎨 报告设置
+day设置格式 [格式]      设置 image、text、html，可逗号组合
+day设置模板 [名称/序号] 设置固定报告模板
+day设置模板 随机        每份报告随机选择一个可用模板
+day查看模板             查看模板列表和预览图
+
+⚙️ 状态与管理
+day分析设置 [动作]      查看或管理当前群分析状态
+day增量状态             查看增量分析状态
+day帮助                 查看本帮助
+day更新日志             查看版本更新内容
+
+配置位置:
+GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis展示配置
+独立 WebUI → 配置中心
+默认报告模板为 ATRI，LLM 默认端点为 https://chisa.akiyo.fun/v1"""
+        )
+
+    async def show_changelog(self, event: PluginMessageEvent):
+        """发送插件版本与更新日志。"""
+        event.should_call_llm(True)
+        yield event.plain_result(
+            f"""📝 DailyAnalyisis 更新日志
+
+当前版本: v{PLUGIN_VERSION}
+
+v5.0.10
+• 修复 scrapbook（第 7 号模板）在部分生产渲染器中 SVG 图标异常放大的问题
+• LLM 默认 API 端点改为 https://chisa.akiyo.fun/v1
+• 新增 day帮助 和 day更新日志
+• 完善帮助文档与版本信息
+
+v5.0.9
+• 增加报告模板随机模式
+• 外部 WebUI 默认关闭，并支持独立密码保护
+• README 增加完整效果图展示
+
+提示: 更新插件后请重载 DailyAnalyisis；已有配置会保留，需要时可执行 day设置模板 ATRI。"""
+        )
 
     async def analysis_settings(self, event: PluginMessageEvent, action: str = "status"):
         """

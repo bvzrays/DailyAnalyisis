@@ -46,7 +46,7 @@ def _protect_inline_icons(html: str) -> str:
         if _DOODLE_CLASS_RE.search(tag) is None:
             return tag
         without_dimensions = _SVG_DIMENSION_RE.sub("", tag)
-        return without_dimensions[:-1] + ' width="1em" height="1em">'
+        return without_dimensions[:-1] + ' width="32" height="32">'
 
     return _SVG_OPEN_TAG_RE.sub(replace_tag, html)
 
@@ -214,7 +214,7 @@ class _Provider:
     def _settings(self, kwargs: dict[str, object]) -> dict[str, object]:
         config = self._llm_config()
         model = str(config.get("model", "gpt-4o-mini")).strip() or "gpt-4o-mini"
-        base_url = str(config.get("api_url", "https://api.openai.com/v1")).strip()
+        base_url = str(config.get("api_url", "https://chisa.akiyo.fun/v1")).strip()
         api_key = str(config.get("api_key", "")).strip()
         temperature_value = kwargs.get("temperature", config.get("temperature", 0.7))
         try:
