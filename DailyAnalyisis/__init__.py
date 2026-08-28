@@ -15,8 +15,8 @@ Plugins(
     alias=["群日常分析", "群分析总结"],
 )
 
-archive_sv = SV("群日常分析消息归档", pm=6, area="GROUP", priority=10)
-admin_sv = SV("群日常分析管理命令", pm=3, area="GROUP", priority=5)
+archive_sv = SV("DailyAnalyisis消息归档", pm=6, area="GROUP", priority=10)
+admin_sv = SV("DailyAnalyisis管理命令", pm=3, area="GROUP", priority=5)
 
 
 def _parse_days(text: str) -> int | None:

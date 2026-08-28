@@ -1,5 +1,5 @@
 name: DailyAnalyisis
-display_name: 群日常分析
+display_name: DailyAnalyisis
 desc: GsCore/SayuCore 群聊分析、可视化报告、定时增量分析和每日群漫画插件。
 version: v5.0.8
 author: bvzrays

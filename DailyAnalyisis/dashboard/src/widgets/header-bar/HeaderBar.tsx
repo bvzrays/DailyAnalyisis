@@ -49,7 +49,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         />
         <div>
           <Title level={5} style={{ margin: 0, fontSize: 15 }}>
-            QQ群日常分析控制台
+            DailyAnalyisis 控制台
           </Title>
           <div style={{ fontSize: 11, color: "#8c8c8c", marginTop: 2 }}>
             查看群聊分析记录、执行进度与大模型消耗统计

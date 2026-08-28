@@ -122,7 +122,7 @@ h1 { margin:5px 0 0; font-size:32px; line-height:1.15; }.time { color:#718096; f
 <section class="metrics"><div class="metric"><div class="metric-label">今日分析任务</div><div class="metric-value">__TODAY_TRACES__</div></div><div class="metric"><div class="metric-label">今日活跃群</div><div class="metric-value">__TODAY_GROUPS__</div></div><div class="metric"><div class="metric-label">总分析次数</div><div class="metric-value">__TOTAL_TRACES__</div></div><div class="metric"><div class="metric-label">成功率</div><div class="metric-value">__SUCCESS_RATE__</div></div><div class="metric"><div class="metric-label">平均耗时</div><div class="metric-value">__AVG_DURATION__</div></div></section>
 <section class="layout"><div class="panel"><div class="panel-title"><strong>近 14 日趋势</strong><span>请求次数 / Token</span></div><div class="chart">__CHART__</div><div class="split"><div><h3>服务商消耗</h3>__PROVIDERS__</div><div><h3>模型消耗</h3>__MODELS__</div></div></div>
 <div class="panel"><div class="panel-title"><strong>Token 与成本消耗</strong><span>累计 / 今日</span></div><div class="consumption"><div class="consumption-card"><small>累计 Token</small><b>__TOTAL_TOKENS__</b></div><div class="consumption-card"><small>今日 Token</small><b>__TODAY_TOKENS__</b></div><div class="consumption-card"><small>累计成本</small><b>__TOTAL_COST__</b></div><div class="consumption-card"><small>今日成本</small><b>__TODAY_COST__</b></div></div><div class="panel-title" style="margin-top:24px;"><strong>当前运行任务</strong><span>__TASK_COUNT__ 个</span></div>__TASKS__</div></section>
-<div class="footer">DailyAnalyisis · 群日常分析插件</div></main></body></html>
+<div class="footer">DailyAnalyisis</div></main></body></html>
 """
     for marker, value in summary_values.items():
         template = template.replace(marker, value)

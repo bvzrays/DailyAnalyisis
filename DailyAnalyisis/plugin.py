@@ -1,5 +1,5 @@
 """
-群日常分析插件
+DailyAnalyisis 插件
 基于群聊记录生成精美的日常分析报告，包含话题总结、用户画像、统计数据等
 
 重构版本 - 使用模块化架构，支持跨平台
@@ -281,7 +281,7 @@ class GroupDailyAnalysis(PluginBase):
         self._terminating = True
 
         try:
-            logger.info("开始清理群日常分析插件资源...")
+            logger.info("开始清理 DailyAnalyisis 插件资源...")
 
             # 1. 停止所有后台任务
             if self._background_tasks:
@@ -310,7 +310,7 @@ class GroupDailyAnalysis(PluginBase):
             # 这里的显式 None 更多是为了协助循环引用清理，但由于异步任务存在竞态，
             # 我们可以通过 check _terminating 标志位来保护。
             # 为了彻底解决 #125，我们保留引用，让 GC 自然回收。
-            logger.info("群日常分析插件资源清理完成")
+            logger.info("DailyAnalyisis 插件资源清理完成")
 
         except Exception as e:
             logger.error(f"插件资源清理失败: {e}")

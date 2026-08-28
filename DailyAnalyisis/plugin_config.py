@@ -262,7 +262,7 @@ gsconfig = StringConfig(
     GSCORE_CONFIG_PATH,
     {
         "Enabled": GsBoolConfig(
-            title="启用群日常分析",
+            title="启用 DailyAnalyisis",
             desc="关闭后停止命令、消息归档、定时分析和增量分析。",
             data=True,
         )

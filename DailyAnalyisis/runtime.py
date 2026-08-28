@@ -47,7 +47,7 @@ class PluginRuntime:
         if self.plugin is None:
             await self.initialize()
         if self.plugin is None:
-            await bot.send("❌ 群日常分析插件当前已禁用")
+            await bot.send("❌ DailyAnalyisis 插件当前已禁用")
             return
         plugin_event = GsCoreMessageEvent(bot, event)
         self.plugin.bot_manager.update_from_event(plugin_event)
