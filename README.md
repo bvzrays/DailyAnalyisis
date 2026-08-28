@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://github.com/bvzrays/DailyAnalyisis"><img src="./ICON.png" width="256" height="256" alt="DailyAnalyisis"></a>
 </p>
-<h1 align="center">DailyAnalyisis 5.0.11</h1>
+<h1 align="center">DailyAnalyisis 5.0.12</h1>
 <h4 align="center">✨ 面向 GsCore / 早柚核心的群聊分析、可视化日报与每日群漫画插件 ✨</h4>
 <div align="center">
   <a href="https://docs.sayu-bot.com/" target="_blank">GsCore 文档</a> &nbsp; · &nbsp;
@@ -159,7 +159,7 @@ uv run core
 
 ## 丨配置
 
-插件完整保留上游 `_conf_schema.json`，并将全部配置项同步映射到 GsCore 配置中心。LLM 的 API Key、端点、模型、温度、输出上限和超时均属于本插件配置；复杂角色方案和绘图后端表在 GsCore 配置中心以 JSON 编辑，在插件专用 WebUI 中则使用结构化表单编辑。
+插件完整保留上游 `_conf_schema.json`，并将全部配置项同步映射到 GsCore 配置中心。LLM 的 Provider、API Key、端点和模型统一使用 GsCore 全局 AI 配置；本插件只提供温度、输出上限、超时、重试等调用调参。复杂角色方案和绘图后端表在 GsCore 配置中心以 JSON 编辑，在插件专用 WebUI 中则使用结构化表单编辑。
 
 | 配置组 | 主要内容 |
 |---|---|
@@ -169,7 +169,7 @@ uv run core
 | QQ 官方机器人 | QQ 官方 Markdown 报告概览图 |
 | 图片渲染策略 | 两轮渲染格式、质量、缩放、超时、视口和字体源 |
 | 定时分析设置 | 定时时间、目标群名单与继承模式 |
-| LLM 设置 | 插件专用 API Key、端点、模型、温度、输出上限、超时、重试、退避和流式调用 |
+| LLM 调参 | 复用 GsCore AI 配置，调整温度、输出上限、超时、重试、退避和流式调用 |
 | 分析功能 | 话题、称号、金句、质量评价、数量上限与人格策略 |
 | 每日群漫画 | 漫画开关、目标群、角色、参考图、绘图后端、Provider 和重试 |
 | 增量分析 | 目标群、批次阈值、即时报告和传统分析回退 |
@@ -192,16 +192,14 @@ WebConsole 参数区按“总览、基础配置、展示配置”拆分为 3 个
 
 ## 丨AI 配置
 
-本插件直接使用自身的 OpenAI 兼容 HTTP Provider，完全不读取早柚核心全局 AI 配置。
+本插件复用 GsCore 全局 AI 配置，不再单独保存 API Key、端点和模型，避免同一服务配置两次。
 
-1. 打开插件 WebUI 的“配置中心 → LLM 设置”。
-2. 填写插件专用 API Key、API 端点 URL 和模型名；端点填写到 `/v1` 根地址即可。
-3. 根据服务商能力调整 temperature、最大输出 Token、请求超时、重试和流式开关。
-4. 保存配置后，新请求立即使用插件配置；如运行中的任务仍持有旧配置，重载插件后再测试。
+1. 打开 GsCore WebConsole 的“AI 配置”，启用 AI 服务并创建/选择 OpenAI 兼容 Provider。
+2. 在“低级任务 AI 模型配置名称”中选择该 Provider；未设置低级任务时插件会读取高级任务配置。
+3. 在本插件的“LLM 调参”中按服务商能力调整 temperature、最大输出 Token、请求超时、重试和流式开关。
+4. 保存 GsCore AI 配置后，新请求会直接使用该配置；如运行中的任务仍持有旧配置，重载插件后再测试。
 
-API Key 只应保存在本机 `data/DailyAnalyisis/config.json`，不要提交到插件仓库或公开日志。
-
-新安装默认 API 端点为 [`https://chisa.akiyo.fun/v1`](https://chisa.akiyo.fun/v1)，这是一个可直接使用的 OpenAI 兼容站点。已有安装会保留原有端点，需要在配置中心手动改为该地址。
+API Key 只应保存在 GsCore 的 AI Provider 配置文件中，不要提交到插件仓库或公开日志。
 
 > [!NOTE]
 > 分析模型与绘图模型可以使用同一 API 地址，但绘图模型本身必须支持生图。若服务端对 `/images/generations` 返回“不支持该模型”，或 Chat API 仅返回文本，日报分析仍可正常运行，漫画则不会产生最终图片。
@@ -269,7 +267,7 @@ $env:NO_PROXY = "localhost,127.0.0.1"
 - GsCore `Plugins` / `SV` 原生注册插件生命周期、消息归档和全部八个命令。
 - GsCore `Event` 会被转换为插件统一事件，平台发送由 GsCore `Bot` 完成。
 - 配置、持久化、HTML 渲染、Web API 和消息组件均由插件内的 GsCore 运行时实现。
-- LLM 调用由插件内置的 OpenAI 兼容 HTTP Provider 执行，不借用其他机器人框架的 Provider 或配置中心。
+- LLM 调用由插件内置的 OpenAI 兼容适配器执行，连接参数读取 GsCore 全局 AI Provider 配置。
 
 ## 丨感谢
 

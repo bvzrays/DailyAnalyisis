@@ -357,29 +357,10 @@
         }
     },
     "llm": {
-        "description": "LLM 设置",
+        "description": "LLM 调参",
         "type": "object",
-        "hint": "插件独立的大语言模型配置。这里的 API Key、端点和模型只供本插件使用，不读取或修改 GsCore 全局 AI 配置。",
+        "hint": "本插件复用 GsCore 全局 AI 配置中的 Provider、API Key、端点和模型；此处仅调整本插件的请求参数。",
         "items": {
-            "api_key": {
-                "type": "string",
-                "description": "插件专用 API Key",
-                "default": "",
-                "secret": true,
-                "hint": "仅保存在本插件配置中，并通过 Authorization 请求头发送；不会读取 GsCore 全局 AI Key。"
-            },
-            "api_url": {
-                "type": "string",
-                "description": "插件专用 API 端点 URL",
-                "default": "https://chisa.akiyo.fun/v1",
-                "hint": "填写 OpenAI 兼容接口的根地址，例如 https://chisa.akiyo.fun/v1；插件会自动请求 /chat/completions。可使用 Chisa 站点提供的兼容接口。"
-            },
-            "model": {
-                "type": "string",
-                "description": "插件专用模型名称",
-                "default": "gpt-4o-mini",
-                "hint": "所有话题、称号、金句、质量分析和漫画分镜请求都使用此模型。"
-            },
             "temperature": {
                 "type": "float",
                 "description": "默认 temperature",

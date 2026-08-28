@@ -1382,7 +1382,7 @@ day更新日志             查看版本更新内容
 配置位置:
 GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis展示配置
 独立 WebUI → 配置中心
-默认报告模板为 ATRI，LLM 默认端点为 https://chisa.akiyo.fun/v1"""
+默认报告模板为 ATRI；LLM 的 Provider、API Key、端点和模型请在 GsCore AI 配置中设置"""
         )
 
     async def show_changelog(self, event: PluginMessageEvent):
@@ -1392,6 +1392,10 @@ GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis展示配置
             f"""📝 DailyAnalyisis 更新日志
 
 当前版本: v{PLUGIN_VERSION}
+
+v5.0.12
+• 更新插件头像，并同步 README 与 WebUI 展示头像
+• LLM 连接配置改为统一读取 GsCore AI 配置，插件不再重复保存 API Key、端点和模型
 
 v5.0.11
 • 更新插件头像，并同步 README 与 WebUI 展示头像

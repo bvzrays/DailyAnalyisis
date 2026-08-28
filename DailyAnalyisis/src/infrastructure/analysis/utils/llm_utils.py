@@ -243,11 +243,11 @@ async def get_provider_id_with_fallback(
     provider_id_key: str | None,
     umo: str | None = None,
 ) -> str | None:
-    """返回插件自有 Provider，禁止回退到 GsCore 全局 AI。"""
+    """返回插件适配器；适配器连接配置来自 GsCore 全局 AI。"""
 
     provider = context.get_provider_by_id("plugin")
     if provider is None:
-        logger.error("插件独立 LLM Provider 未初始化")
+        logger.error("GsCore AI Provider 适配器未初始化")
         return None
     return "plugin"
 
@@ -281,7 +281,7 @@ async def call_provider_with_retry(
     Returns:
         LLM生成的结果，失败时返回None
     """
-    # HTTP 超时由插件自己的 llm.timeout 控制。
+    # 请求调参与超时由插件配置控制，连接信息由 GsCore AI 配置控制。
     retries = config_manager.get_llm_retries()
     backoff = config_manager.get_llm_backoff()
     enable_streaming_llm_call = config_manager.get_enable_streaming_llm_call()

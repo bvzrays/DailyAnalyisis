@@ -523,6 +523,9 @@ def load_config() -> PluginConfig:
     llm_config = merged.get("llm")
     if isinstance(llm_config, dict):
         for field_name in (
+            "api_key",
+            "api_url",
+            "model",
             "llm_provider_id",
             "topic_provider_id",
             "user_title_provider_id",
