@@ -1,9 +1,9 @@
-# QQGroupDailyAnalysis
+# DailyAnalyisis
 
 <p align="center">
-  <a href="https://github.com/bvzrays/qq_group_daily_analysis"><img src="./ICON.png" width="256" height="256" alt="QQGroupDailyAnalysis"></a>
+  <a href="https://github.com/bvzrays/DailyAnalyisis"><img src="./ICON.png" width="256" height="256" alt="DailyAnalyisis"></a>
 </p>
-<h1 align="center">群日常分析 QQGroupDailyAnalysis 5.0.8</h1>
+<h1 align="center">群日常分析 DailyAnalyisis 5.0.8</h1>
 <h4 align="center">✨ 面向 GsCore / 早柚核心的群聊分析、可视化日报与每日群漫画插件 ✨</h4>
 <div align="center">
   <a href="https://docs.sayu-bot.com/" target="_blank">GsCore 文档</a> &nbsp; · &nbsp;
@@ -26,7 +26,7 @@
 2. 选择“通过 URL 安装”并填写：
 
    ```text
-   https://github.com/bvzrays/qq_group_daily_analysis
+   https://github.com/bvzrays/DailyAnalyisis
    ```
 
 3. 确认核心配置中的“自动安装插件依赖”已开启。
@@ -38,7 +38,7 @@
 
 ```sh
 cd gsuid_core/plugins
-git clone https://github.com/bvzrays/qq_group_daily_analysis.git QQGroupDailyAnalysis
+   git clone https://github.com/bvzrays/DailyAnalyisis.git DailyAnalyisis
 cd ../..
 uv run core
 ```
@@ -109,6 +109,7 @@ uv run core
 | `day查看模板` | `view_templates` | 查看全部报告模板及预览 |
 | `day分析设置 [动作]` | `analysis_settings` | 管理当前群分析状态与调试开关 |
 | `day增量状态` | `incremental_status` | 查看当前滑动窗口内的增量分析状态 |
+| `day概览` | `overview` | 以图片查看运行总览、统计、Token/成本消耗和当前任务 |
 
 `day分析设置` 支持以下动作：
 
@@ -142,11 +143,11 @@ uv run core
 
 完整配置入口：
 
-- GsCore WebConsole：插件配置 → `QQGroupDailyAnalysis`
-- 插件 WebUI：`http://localhost:8765/qq-group-daily-analysis-gscore/`
-- 本地数据：`data/QQGroupDailyAnalysis/config.json`
+- GsCore WebConsole：插件配置 → `DailyAnalyisis`
+- 插件 WebUI：`http://localhost:8765/daily-analyisis-gscore/`
+- 本地数据：`data/DailyAnalyisis/config.json`
 
-WebConsole 参数区按“总览、基础设置、QQ 官方、图片渲染、定时分析、LLM、分析功能、每日漫画、增量分析、HTML、群文件上传、提示词、并发限流”拆分为 13 个原生配置标签，不需要在单一长表单中查找。配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
+WebConsole 参数区按“总览、基础配置、展示配置”拆分为 3 个原生配置标签；其中基础配置和展示配置内部仍按功能分隔，并保留全部 schema 字段。插件 WebUI 同样按两栏导航展示，不需要在单一长表单中查找。配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
 
 ## 丨AI 配置
 
@@ -157,7 +158,7 @@ WebConsole 参数区按“总览、基础设置、QQ 官方、图片渲染、定
 3. 根据服务商能力调整 temperature、最大输出 Token、请求超时、重试和流式开关。
 4. 保存配置后，新请求立即使用插件配置；如运行中的任务仍持有旧配置，重载插件后再测试。
 
-API Key 只应保存在本机 `data/QQGroupDailyAnalysis/config.json`，不要提交到插件仓库或公开日志。
+API Key 只应保存在本机 `data/DailyAnalyisis/config.json`，不要提交到插件仓库或公开日志。
 
 > [!NOTE]
 > 分析模型与绘图模型可以使用同一 API 地址，但绘图模型本身必须支持生图。若服务端对 `/images/generations` 返回“不支持该模型”，或 Chat API 仅返回文本，日报分析仍可正常运行，漫画则不会产生最终图片。
@@ -176,20 +177,20 @@ API Key 只应保存在本机 `data/QQGroupDailyAnalysis/config.json`，不要�
 默认 GsCore 端口为 `8765`，插件页面地址：
 
 ```text
-http://localhost:8765/qq-group-daily-analysis-gscore/
+http://localhost:8765/daily-analyisis-gscore/
 ```
 
 API 前缀：
 
 ```text
-/api/qq_group_daily_analysis/
+/api/daily_analyisis/
 ```
 
 请求由 GsCore FastAPI 直接处理，WebUI 不依赖任何外部宿主页面桥。
 
 ## 丨数据目录
 
-运行数据全部位于 GsCore 的 `data/QQGroupDailyAnalysis/`：
+运行数据全部位于 GsCore 的 `data/DailyAnalyisis/`：
 
 - `config.json`：完整插件配置
 - `gscore_config.json`：GsCore 配置中心总开关镜像
@@ -216,11 +217,11 @@ $env:NO_PROXY = "localhost,127.0.0.1"
 .\.venv\Scripts\core.exe
 ```
 
-看到日志中的 `QQGroupDailyAnalysis 就绪` 以及当前消息适配器的连接成功提示后即可在群聊中使用指令。
+看到日志中的 `DailyAnalyisis 就绪` 以及当前消息适配器的连接成功提示后即可在群聊中使用指令。
 
 ## 丨实现说明
 
-- GsCore `Plugins` / `SV` 原生注册插件生命周期、消息归档和全部七个命令。
+- GsCore `Plugins` / `SV` 原生注册插件生命周期、消息归档和全部八个命令。
 - GsCore `Event` 会被转换为插件统一事件，平台发送由 GsCore `Bot` 完成。
 - 配置、持久化、HTML 渲染、Web API 和消息组件均由插件内的 GsCore 运行时实现。
 - LLM 调用由插件内置的 OpenAI 兼容 HTTP Provider 执行，不借用其他机器人框架的 Provider 或配置中心。

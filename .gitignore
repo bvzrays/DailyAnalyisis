@@ -22,7 +22,7 @@ debug_*.html
 test_*.html
 scripts/output/
 scripts/output_all/
-QQGroupDailyAnalysis/scripts/
+DailyAnalyisis/scripts/
 data/debug_data/
 data/test/
 

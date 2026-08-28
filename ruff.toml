@@ -9,11 +9,11 @@ extend-exclude = [
   "pyproject.toml",
   "**/*.toml",
   "tests",
-  "QQGroupDailyAnalysis/dashboard",
-  "QQGroupDailyAnalysis/pages",
-  "QQGroupDailyAnalysis/scripts",
-  "QQGroupDailyAnalysis/src",
-  "QQGroupDailyAnalysis/legacy_main.py",
+  "DailyAnalyisis/dashboard",
+  "DailyAnalyisis/pages",
+  "DailyAnalyisis/scripts",
+  "DailyAnalyisis/src",
+  "DailyAnalyisis/legacy_main.py",
 ]
 
 [lint]
@@ -22,7 +22,7 @@ select = ["E", "F", "I", "W"]
 [lint.isort]
 combine-as-imports = true
 length-sort = true
-known-first-party = ["gsuid_core", "QQGroupDailyAnalysis"]
+known-first-party = ["gsuid_core", "DailyAnalyisis"]
 section-order = [
   "future",
   "standard-library",

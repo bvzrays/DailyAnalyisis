@@ -3,24 +3,24 @@
   "typeCheckingMode": "basic",
   "include": [
     "__init__.py",
-    "QQGroupDailyAnalysis/__init__.py",
-    "QQGroupDailyAnalysis/event_bridge.py",
-    "QQGroupDailyAnalysis/gscore_runtime",
-    "QQGroupDailyAnalysis/plugin.py",
-    "QQGroupDailyAnalysis/plugin_config.py",
-    "QQGroupDailyAnalysis/runtime.py",
-    "QQGroupDailyAnalysis/webui_static.py"
+    "DailyAnalyisis/__init__.py",
+    "DailyAnalyisis/event_bridge.py",
+    "DailyAnalyisis/gscore_runtime",
+    "DailyAnalyisis/plugin.py",
+    "DailyAnalyisis/plugin_config.py",
+    "DailyAnalyisis/runtime.py",
+    "DailyAnalyisis/webui_static.py"
   ],
   "venvPath": "../gsuid_core",
   "venv": ".venv",
   "extraPaths": [
     ".",
-    "QQGroupDailyAnalysis",
+    "DailyAnalyisis",
     "../gsuid_core"
   ],
   "exclude": [
-    "QQGroupDailyAnalysis/src",
-    "QQGroupDailyAnalysis/dashboard",
-    "QQGroupDailyAnalysis/pages"
+    "DailyAnalyisis/src",
+    "DailyAnalyisis/dashboard",
+    "DailyAnalyisis/pages"
   ]
 }

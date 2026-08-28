@@ -1,5 +1,5 @@
 [project]
-name = "qq-group-daily-analysis"
+name = "daily-analyisis"
 version = "5.0.8"
 description = "GsCore/SayuCore 群聊分析、可视化报告、定时增量分析和每日群漫画插件"
 authors = [
@@ -15,14 +15,14 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/bvzrays/qq_group_daily_analysis"
-Repository = "https://github.com/bvzrays/qq_group_daily_analysis"
+Homepage = "https://github.com/bvzrays/DailyAnalyisis"
+Repository = "https://github.com/bvzrays/DailyAnalyisis"
 "Original Project" = "https://github.com/SXP-Simon/astrbot_plugin_qq_group_daily_analysis"
 
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-extend-exclude = ["QQGroupDailyAnalysis/dashboard", "QQGroupDailyAnalysis/pages"]
+extend-exclude = ["DailyAnalyisis/dashboard", "DailyAnalyisis/pages"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
@@ -30,4 +30,4 @@ select = ["E", "F", "I", "W"]
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
-exclude = ["QQGroupDailyAnalysis/dashboard", "QQGroupDailyAnalysis/pages"]
+exclude = ["DailyAnalyisis/dashboard", "DailyAnalyisis/pages"]
