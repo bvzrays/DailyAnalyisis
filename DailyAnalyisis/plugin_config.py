@@ -63,8 +63,8 @@ _NATIVE_GROUP_MEMBERS = {
         "incremental",
         "performance",
     },
-    "DailyAnalyisis LLM配置": {"llm"},
-    "DailyAnalyisis展示配置": {"qq_official", "t2i_rendering", "daily_comic", "html", "qq_group_upload", "prompts"},
+    "DailyAnalyisis LLM配置": {"llm", "daily_comic"},
+    "DailyAnalyisis展示配置": {"qq_official", "t2i_rendering", "html", "qq_group_upload", "prompts"},
 }
 
 
@@ -337,7 +337,10 @@ def _migrate_legacy_gscore_config() -> None:
     for group_key, legacy_config in legacy_group_configs.items():
         group_configs[group_key].migrate_from(legacy_config)
     native_configs["DailyAnalyisis LLM配置"].migrate_from(
-        native_configs["DailyAnalyisis基础配置"]
+        [
+            native_configs["DailyAnalyisis基础配置"],
+            native_configs["DailyAnalyisis展示配置"],
+        ]
     )
     for group_config in native_configs.values():
         group_config.migrate_from(gsconfig)

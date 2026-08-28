@@ -29,11 +29,15 @@ const { Title, Text, Paragraph } = Typography;
 const CONFIG_SECTIONS = [
   {
     title: "基础配置",
-    keys: ["basic", "webui", "auto_analysis", "llm", "analysis_features", "incremental", "performance"],
+    keys: ["basic", "webui", "auto_analysis", "analysis_features", "incremental", "performance"],
+  },
+  {
+    title: "LLM 与群漫画",
+    keys: ["llm", "daily_comic"],
   },
   {
     title: "展示配置",
-    keys: ["qq_official", "t2i_rendering", "daily_comic", "html", "qq_group_upload", "prompts"],
+    keys: ["qq_official", "t2i_rendering", "html", "qq_group_upload", "prompts"],
   },
 ];
 
