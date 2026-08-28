@@ -5,6 +5,8 @@ from copy import deepcopy
 from pathlib import Path
 from collections.abc import Iterator
 
+import msgspec
+
 from gsuid_core.logger import logger
 from gsuid_core.data_store import get_res_path
 from gsuid_core.utils.plugins_config.models import (
@@ -15,6 +17,7 @@ from gsuid_core.utils.plugins_config.models import (
     GsBoolConfig,
     GsFloatConfig,
     GsListStrConfig,
+    GsRepeatGroupConfig,
 )
 from gsuid_core.utils.plugins_config.gs_config import StringConfig, all_config_list
 
@@ -129,6 +132,120 @@ def _string_details(path: tuple[str, ...], spec: dict) -> dict:
     }
 
 
+def _template_list_specs(spec: dict) -> dict[str, dict]:
+    templates = spec.get("templates")
+    if not isinstance(templates, dict):
+        return {}
+    merged: dict[str, dict] = {}
+    for template_key, template in templates.items():
+        if not isinstance(template, dict) or not isinstance(template.get("items"), dict):
+            continue
+        for key, child_spec in template["items"].items():
+            if key not in merged and isinstance(child_spec, dict):
+                merged[key] = deepcopy(child_spec)
+    if "__template_key" not in merged:
+        template_keys = [str(key) for key in templates]
+        merged = {
+            "__template_key": {
+                "description": "配置类型",
+                "type": "string",
+                "options": template_keys,
+                "default": template_keys[0] if template_keys else "",
+                "hint": "选择此条目对应的供应商协议类型。",
+            },
+            **merged,
+        }
+    return merged
+
+
+def _repeat_group_values(data: list[dict[str, GSC]]) -> list[dict[str, object]]:
+    values: list[dict[str, object]] = []
+    for row in data:
+        item: dict[str, object] = {}
+        for key, field in row.items():
+            if isinstance(field, GsRepeatGroupConfig):
+                item[key] = _repeat_group_values(field.data)
+            elif isinstance(field, GsDivider):
+                continue
+            else:
+                item[key] = deepcopy(field.data)
+        values.append(item)
+    return values
+
+
+def _repeat_group_rows(
+    values: object,
+    template: dict[str, GSC],
+) -> list[dict[str, GSC]]:
+    if isinstance(values, str):
+        try:
+            values = json.loads(values)
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(values, list):
+        return []
+    rows: list[dict[str, GSC]] = []
+    for raw_row in values:
+        if not isinstance(raw_row, dict):
+            continue
+        row: dict[str, GSC] = {}
+        for key, field in template.items():
+            cloned = deepcopy(field)
+            if key in raw_row and not isinstance(cloned, GsDivider):
+                raw_value = raw_row[key]
+                if isinstance(cloned, GsRepeatGroupConfig) and isinstance(raw_value, list):
+                    cloned.data = _repeat_group_rows(raw_value, cloned.template)
+                elif type(raw_value) is type(cloned.data):
+                    cloned.data = raw_value
+                elif isinstance(cloned, GsFloatConfig) and isinstance(raw_value, int) and not isinstance(raw_value, bool):
+                    cloned.data = float(raw_value)
+            row[key] = cloned
+        rows.append(row)
+    return rows
+
+
+def _make_repeat_group_field(path: tuple[str, ...], spec: dict) -> GsRepeatGroupConfig:
+    template_specs = _template_list_specs(spec)
+    template = {
+        key: _make_gscore_field((*path, key), child_spec)
+        for key, child_spec in template_specs.items()
+    }
+    for key, field in template.items():
+        if key == "api_key" and isinstance(field, GsStrConfig):
+            field.secret = True
+    return GsRepeatGroupConfig(
+        title=str(spec.get("description") or path[-1]),
+        desc=_description(spec),
+        data=[],
+        template=template,
+    )
+
+
+def _migrate_template_list_file(path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(raw, dict):
+        return
+    changed = False
+    schema_by_path = {".".join(field_path): field_spec for field_path, field_spec in _SCHEMA_FIELDS}
+    for key, spec in schema_by_path.items():
+        if spec.get("type") != "template_list":
+            continue
+        stored = raw.get(key)
+        if not isinstance(stored, dict) or stored.get("type") != "GsStrConfig":
+            continue
+        field = _make_repeat_group_field(tuple(key.split(".")), spec)
+        field.data = _repeat_group_rows(stored.get("data", ""), field.template)
+        raw[key] = msgspec.to_builtins(field)
+        changed = True
+    if changed:
+        path.write_text(json.dumps(raw, ensure_ascii=False, indent=4), encoding="utf-8")
+
+
 def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
     title = str(spec.get("description") or path[-1])
     description = _description(spec)
@@ -177,7 +294,9 @@ def _make_gscore_field(path: tuple[str, ...], spec: dict) -> GSC:
             options=string_options,
             secret=bool(spec.get("secret", False)),
         )
-    if field_type in {"file", "template_list"}:
+    if field_type == "template_list":
+        return _make_repeat_group_field(path, spec)
+    if field_type == "file":
         encoded = json.dumps(default, ensure_ascii=False, indent=2)
         return GsStrConfig(
             title=title,
@@ -230,6 +349,11 @@ def _build_native_group(group_keys: set[str]) -> dict[str, GSC]:
 _SCHEMA = load_schema()
 _DEFAULTS = default_config()
 _SCHEMA_FIELDS = tuple(_iter_schema_fields(_SCHEMA))
+_TEMPLATE_LIST_PATHS = {
+    ".".join(path)
+    for path, spec in _SCHEMA_FIELDS
+    if spec.get("type") == "template_list"
+}
 _STRUCTURED_PATHS = {
     ".".join(path)
     for path, spec in _SCHEMA_FIELDS
@@ -245,6 +369,11 @@ _NATIVE_CONFIG_PATHS = {
     "DailyAnalyisis LLM配置": GSCORE_CONFIG_DIR / "llm.json",
     "DailyAnalyisis展示配置": GSCORE_CONFIG_DIR / "display.json",
 }
+for _template_config_path in (
+    *_GROUP_CONFIG_PATHS.values(),
+    *_NATIVE_CONFIG_PATHS.values(),
+):
+    _migrate_template_list_file(_template_config_path)
 _existing_gscore_paths = [
     path
     for path in (
@@ -400,6 +529,8 @@ def _set_nested(data: dict, path: tuple[str, ...], value: object) -> None:
 
 def _to_gscore_value(path: tuple[str, ...], value: object, spec: dict) -> object:
     field_type = spec.get("type")
+    if field_type == "template_list" and isinstance(value, list):
+        return deepcopy(value)
     if ".".join(path) in _STRUCTURED_PATHS:
         return json.dumps(value, ensure_ascii=False, indent=2)
     if field_type == "list":
@@ -420,6 +551,8 @@ def _to_gscore_value(path: tuple[str, ...], value: object, spec: dict) -> object
 
 
 def _from_gscore_value(path: tuple[str, ...], value: object) -> object:
+    if ".".join(path) in _TEMPLATE_LIST_PATHS and isinstance(value, list):
+        return deepcopy(value)
     if ".".join(path) not in _STRUCTURED_PATHS:
         return deepcopy(value)
     try:
@@ -430,6 +563,9 @@ def _from_gscore_value(path: tuple[str, ...], value: object) -> object:
 
 
 def _assign_gscore_value(field: GSC, value: object) -> bool:
+    if isinstance(field, GsRepeatGroupConfig) and isinstance(value, list):
+        field.data = _repeat_group_rows(value, field.template)
+        return True
     if isinstance(field, GsBoolConfig) and isinstance(value, bool):
         field.data = value
         return True
@@ -480,7 +616,11 @@ def _apply_gscore_to_config(data: dict) -> None:
         group_config = _config_for_path(path)
         if key not in group_config.config:
             continue
-        value = _from_gscore_value(path, group_config.config[key].data)
+        field = group_config.config[key]
+        if isinstance(field, GsRepeatGroupConfig):
+            value = _repeat_group_values(field.data)
+        else:
+            value = _from_gscore_value(path, field.data)
         if value is not None:
             _set_nested(data, path, value)
     external_field = gsconfig.config.get("ExternalWebUIEnabled")

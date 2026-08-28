@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://github.com/bvzrays/DailyAnalyisis"><img src="./ICON.png" width="256" height="256" alt="DailyAnalyisis"></a>
 </p>
-<h1 align="center">DailyAnalyisis 5.0.14</h1>
+<h1 align="center">DailyAnalyisis 5.0.15</h1>
 <h4 align="center">✨ 面向 GsCore / 早柚核心的群聊分析、可视化日报与每日群漫画插件 ✨</h4>
 <div align="center">
   <a href="https://docs.sayu-bot.com/" target="_blank">GsCore 文档</a> &nbsp; · &nbsp;
@@ -159,7 +159,7 @@ uv run core
 
 ## 丨配置
 
-插件完整保留上游 `_conf_schema.json`，并将全部配置项同步映射到 GsCore 配置中心。LLM 的 API Key、端点、模型、温度、输出上限和超时均属于本插件配置；复杂角色方案和绘图后端表在 GsCore 配置中心以 JSON 编辑，在插件专用 WebUI 中则使用结构化表单编辑。
+插件完整保留上游 `_conf_schema.json`，并将全部配置项同步映射到 GsCore 配置中心。LLM 的 API Key、端点、模型、温度、输出上限和超时均属于本插件配置；复杂角色方案和提示词仍可使用 JSON 编辑，绘图供应商配置表则使用可添加、展开和删除条目的结构化表单，在插件专用 WebUI 中同样使用结构化表单编辑。
 
 | 配置组 | 主要内容 |
 |---|---|

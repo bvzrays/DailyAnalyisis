@@ -1393,6 +1393,9 @@ GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis LLM配置 / Da
 
 当前版本: v{PLUGIN_VERSION}
 
+v5.0.15
+• 将绘图供应商配置改为可视化结构化表单，支持多供应商添加、编辑、删除及优先级配置
+
 v5.0.14
 • 在 GsCore 控制台新增独立的 DailyAnalyisis LLM配置 标签，集中管理 API Key、端点、模型及请求参数
 
