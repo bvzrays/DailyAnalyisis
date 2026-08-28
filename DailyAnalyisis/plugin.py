@@ -1393,6 +1393,9 @@ GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis LLM配置 / Da
 
 当前版本: v{PLUGIN_VERSION}
 
+v5.0.16
+• 为报告模板图标补充显式内联尺寸，并增强 SVG 尺寸兜底，兼容不同 GsCore/Takumi 渲染环境
+
 v5.0.15
 • 将绘图供应商配置改为可视化结构化表单，支持多供应商添加、编辑、删除及优先级配置
 
