@@ -19,9 +19,11 @@ class WebUIAuthenticator:
         self,
         config: Any,
         password_reader: Callable[[], str | None] | None = None,
+        enabled_reader: Callable[[], bool | None] | None = None,
     ) -> None:
         self.config = config
         self.password_reader = password_reader
+        self.enabled_reader = enabled_reader
         self._sessions: dict[str, float] = {}
         self._observed_password_hash: str | None = None
 
@@ -32,6 +34,27 @@ class WebUIAuthenticator:
         section = {}
         self.config["webui"] = section
         return section
+
+    @staticmethod
+    def _as_bool(value: Any, default: bool = False) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        if value is None:
+            return default
+        return bool(value)
+
+    @property
+    def enabled(self) -> bool:
+        if self.enabled_reader is not None:
+            try:
+                current = self.enabled_reader()
+            except Exception:
+                current = None
+            if current is not None:
+                return self._as_bool(current)
+        return self._as_bool(self._section().get("external_enabled", False))
 
     def _password_hash(self) -> str:
         if self.password_reader is not None:
@@ -108,13 +131,15 @@ class WebUIAuthenticator:
             self._sessions.pop(token, None)
 
     def is_authenticated(self) -> bool:
-        if not self.configured:
+        if not self.enabled or not self.configured:
             return False
         self._purge_sessions()
         token = request.cookies.get(self.cookie_name, "")
         return bool(token and token in self._sessions)
 
     def status_response(self):
+        if not self.enabled:
+            return error_response("DailyAnalyisis 外部 WebUI 当前已关闭", status_code=404)
         return json_response(
             {
                 "status": "ok",
@@ -126,6 +151,8 @@ class WebUIAuthenticator:
         )
 
     def unauthorized_response(self):
+        if not self.enabled:
+            return error_response("DailyAnalyisis 外部 WebUI 当前已关闭", status_code=404)
         return json_response(
             {
                 "status": "auth_required",
@@ -161,6 +188,8 @@ class WebUIAuthenticator:
         return response
 
     def setup(self, password: str, confirmation: str):
+        if not self.enabled:
+            return error_response("DailyAnalyisis 外部 WebUI 当前已关闭", status_code=404)
         if self.configured:
             return error_response("WebUI 密码已经设置，请使用登录接口", status_code=409)
         if len(password) < 8:
@@ -171,6 +200,8 @@ class WebUIAuthenticator:
         return self._session_response("WebUI 密码设置成功")
 
     def login(self, password: str):
+        if not self.enabled:
+            return error_response("DailyAnalyisis 外部 WebUI 当前已关闭", status_code=404)
         if not self.configured:
             return error_response("请先设置 WebUI 密码", status_code=428)
         if not self._verify_password(password, self._password_hash()):
@@ -178,6 +209,8 @@ class WebUIAuthenticator:
         return self._session_response("WebUI 登录成功")
 
     def logout(self):
+        if not self.enabled:
+            return error_response("DailyAnalyisis 外部 WebUI 当前已关闭", status_code=404)
         token = request.cookies.get(self.cookie_name, "")
         self._sessions.pop(token, None)
         response = json_response({"status": "ok", "message": "WebUI 已退出登录"})

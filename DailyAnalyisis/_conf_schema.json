@@ -161,14 +161,20 @@
     "webui": {
         "description": "WebUI 安全设置",
         "type": "object",
-        "hint": "WebUI 可能通过公网访问，首次打开时必须设置密码。密码只保存为不可逆摘要，不会以明文写入配置。修改后会影响 WebUI 登录。",
+        "hint": "外部 WebUI 默认关闭。开启后页面可能被反向代理暴露到公网，首次访问必须设置密码。密码只保存为不可逆摘要，不会以明文写入配置。",
         "items": {
+            "external_enabled": {
+                "type": "bool",
+                "description": "启用外部 WebUI",
+                "default": false,
+                "hint": "默认关闭。开启后才会挂载 DailyAnalyisis 独立 WebUI；开启后必须设置访问密码。"
+            },
             "password": {
                 "type": "string",
                 "description": "WebUI 访问密码",
                 "secret": true,
                 "default": "",
-                "hint": "首次进入 WebUI 时设置；以后可在这里输入新密码并保存。至少 8 个字符，留空表示保留当前密码。"
+                "hint": "开启外部 WebUI 后首次进入页面时设置；以后可在这里输入新密码并保存。至少 8 个字符，留空表示保留当前密码。"
             }
         }
     },

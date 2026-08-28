@@ -97,6 +97,38 @@ uv run core
 
 </p></details>
 
+## 丨效果
+
+### 1. 群分析报告
+
+下列为不同报告主题的实际渲染效果，点击图片可查看原图。
+
+<table>
+  <tr>
+    <td><a href="./DailyAnalyisis/assets/scrapbook-demo.jpg"><img src="./DailyAnalyisis/assets/scrapbook-demo.jpg" height="520" alt="scrapbook 主题"></a></td>
+    <td><a href="./DailyAnalyisis/assets/retro_futurism-demo.jpg"><img src="./DailyAnalyisis/assets/retro_futurism-demo.jpg" height="520" alt="retro futurism 主题"></a></td>
+    <td><a href="./DailyAnalyisis/assets/HatsuneMiku-demo.jpg"><img src="./DailyAnalyisis/assets/HatsuneMiku-demo.jpg" height="520" alt="Hatsune Miku 主题"></a></td>
+  </tr>
+  <tr>
+    <td><a href="./DailyAnalyisis/assets/hack-demo.jpg"><img src="./DailyAnalyisis/assets/hack-demo.jpg" height="520" alt="hack 主题"></a></td>
+    <td><a href="./DailyAnalyisis/assets/ATRI-demo.jpg"><img src="./DailyAnalyisis/assets/ATRI-demo.jpg" height="520" alt="ATRI 主题"></a></td>
+    <td><a href="./DailyAnalyisis/assets/BlueArchive-demo.jpg"><img src="./DailyAnalyisis/assets/BlueArchive-demo.jpg" height="520" alt="Blue Archive 主题"></a></td>
+  </tr>
+  <tr>
+    <td><a href="./DailyAnalyisis/assets/simple-demo.jpg"><img src="./DailyAnalyisis/assets/simple-demo.jpg" height="520" alt="simple 主题"></a></td>
+    <td><a href="./DailyAnalyisis/assets/spring_festival-demo.jpg"><img src="./DailyAnalyisis/assets/spring_festival-demo.jpg" height="520" alt="春节主题"></a></td>
+    <td><a href="./DailyAnalyisis/assets/comic-demo.jpg"><img src="./DailyAnalyisis/assets/comic-demo.jpg" height="520" alt="每日群漫画"></a></td>
+  </tr>
+</table>
+
+### 2. 报告格式
+
+插件支持图片、文本、HTML 以及组合输出；HTML 报告也可以保存到本地或通过公开地址访问。
+
+<p align="center">
+  <a href="./DailyAnalyisis/assets/format-demo.jpg"><img src="./DailyAnalyisis/assets/format-demo.jpg" height="520" alt="报告格式示例"></a>
+</p>
+
 ## 丨指令
 
 以下指令与上游 5.0.8 一一对应，均需在群聊中由管理员使用。本插件固定使用 `day` 作为指令前缀。
@@ -130,7 +162,7 @@ uv run core
 | 配置组 | 主要内容 |
 |---|---|
 | 基础设置 | 群名单、分析天数、消息阈值、输出格式、模板、用户卡片和调试开关 |
-| WebUI 安全 | 首次访问密码、会话保护和公网访问安全设置 |
+| WebUI 安全 | 外部 WebUI 开关、首次访问密码、会话保护和公网访问安全设置 |
 | QQ 官方机器人 | QQ 官方 Markdown 报告概览图 |
 | 图片渲染策略 | 两轮渲染格式、质量、缩放、超时、视口和字体源 |
 | 定时分析设置 | 定时时间、目标群名单与继承模式 |
@@ -151,7 +183,7 @@ uv run core
 
 WebConsole 参数区按“总览、基础配置、展示配置”拆分为 3 个原生配置标签；其中基础配置和展示配置内部仍按功能分隔，并保留全部 schema 字段。插件 WebUI 同样按两栏导航展示，不需要在单一长表单中查找。配置保存时，插件专用配置与 GsCore 配置会自动同步；从 GsCore 配置中心修改后建议重载插件。
 
-WebUI 面向公网使用时，第一次进入页面会要求设置独立访问密码；密码只以 PBKDF2-SHA256 摘要保存，不会写入明文。之后可在 GsCore WebConsole 的 `DailyAnalyisis基础配置 → 群分析·WebUI安全 → WebUI访问密码` 中输入新密码，保存后立即生效并使旧会话失效。公网部署还应使用 HTTPS 和反向代理，不要直接暴露未加密的 HTTP。
+外部 WebUI 默认关闭。需要使用时，先在 GsCore WebConsole 的 `DailyAnalyisis基础配置 → 群分析·WebUI安全 → 启用外部 WebUI` 中开启；开启后第一次进入页面会要求设置独立访问密码。密码只以 PBKDF2-SHA256 摘要保存，不会写入明文。之后可在同一配置组的 `WebUI访问密码` 中输入新密码，保存后立即生效并使旧会话失效。公网部署还应使用 HTTPS 和反向代理，不要直接暴露未加密的 HTTP。
 
 ## 丨AI 配置
 
@@ -178,7 +210,7 @@ API Key 只应保存在本机 `data/DailyAnalyisis/config.json`，不要提交�
 
 ## 丨WebUI
 
-默认 GsCore 端口为 `8765`，插件页面地址：
+默认 GsCore 端口为 `8765`；外部 WebUI 默认关闭，开启配置后插件页面地址：
 
 ```text
 http://127.0.0.1:8765/daily-analyisis-gscore/
