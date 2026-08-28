@@ -69,7 +69,7 @@ class ReportFormat(str, Enum):
 # 插件元数据
 PLUGIN_NAME = "DailyAnalyisis"
 PLUGIN_ROUTE = "daily_analyisis"
-PLUGIN_VERSION = "5.0.12"
+PLUGIN_VERSION = "5.0.13"
 
 # 平台标识符
 SUPPORTED_PLATFORMS = [

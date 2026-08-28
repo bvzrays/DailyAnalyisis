@@ -1393,6 +1393,9 @@ GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis展示配置
 
 当前版本: v{PLUGIN_VERSION}
 
+v5.0.13
+• 恢复插件独立 LLM 配置，API Key、端点和模型重新由本插件管理
+
 v5.0.12
 • 更新插件头像，并同步 README 与 WebUI 展示头像
 • LLM 连接配置改为统一读取 GsCore AI 配置，插件不再重复保存 API Key、端点和模型

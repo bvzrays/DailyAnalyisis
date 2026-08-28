@@ -211,63 +211,11 @@ class _Provider:
         value = self.config.get("llm", {})
         return value if isinstance(value, dict) else {}
 
-    @staticmethod
-    def _first_value(value: object) -> str:
-        if isinstance(value, list):
-            for item in value:
-                text = str(item).strip()
-                if text:
-                    return text
-            return ""
-        return str(value or "").strip()
-
-    def _gscore_ai_settings(self) -> dict[str, str]:
-        try:
-            from gsuid_core.ai_core.configs.ai_config import ai_config
-            from gsuid_core.ai_core.configs.models import parse_provider_config_name
-            from gsuid_core.ai_core.configs.provider_config_manager import get_provider_config
-        except ImportError as exc:
-            raise RuntimeError("当前 GsCore 未提供统一 AI 配置，请升级 GsCore 后重载插件") from exc
-
-        full_name = ""
-        for config_key in ("low_level_provider_config_name", "high_level_provider_config_name"):
-            try:
-                full_name = self._first_value(ai_config.get_config(config_key).data)
-            except Exception:
-                full_name = ""
-            if full_name:
-                break
-        if not full_name:
-            raise RuntimeError("请先在 GsCore 的 AI 配置中选择低级或高级任务模型")
-
-        provider_name, config_name = parse_provider_config_name(full_name)
-        if provider_name != "openai":
-            raise RuntimeError(
-                "DailyAnalyisis 需要在 GsCore AI 配置中选择 OpenAI 兼容 Provider"
-            )
-        provider = get_provider_config(provider_name, config_name)
-        base_url = self._first_value(provider.get_config("base_url").data)
-        api_key = self._first_value(provider.get_config("api_key").data)
-        model = self._first_value(provider.get_config("model_name").data)
-        if not base_url or not api_key or not model:
-            raise RuntimeError(
-                f"GsCore AI 配置 {full_name} 缺少 API 端点、API Key 或模型名称"
-            )
-        return {
-            "provider": provider_name,
-            "config_name": config_name,
-            "full_name": full_name,
-            "base_url": base_url,
-            "api_key": api_key,
-            "model": model,
-        }
-
     def _settings(self, kwargs: dict[str, object]) -> dict[str, object]:
         config = self._llm_config()
-        gscore_settings = self._gscore_ai_settings()
-        model = gscore_settings["model"]
-        base_url = gscore_settings["base_url"]
-        api_key = gscore_settings["api_key"]
+        model = str(config.get("model", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+        base_url = str(config.get("api_url", "https://chisa.akiyo.fun/v1")).strip()
+        api_key = str(config.get("api_key", "")).strip()
         temperature_value = kwargs.get("temperature", config.get("temperature", 0.7))
         try:
             temperature = max(0.0, min(2.0, float(temperature_value)))
@@ -282,8 +230,7 @@ class _Provider:
         except (TypeError, ValueError):
             timeout = 120
         self.provider_config = {
-            "type": "gscore_openai_compatible",
-            "provider": gscore_settings["full_name"],
+            "type": "plugin_openai_compatible",
             "model": model,
             "temperature": temperature,
             "max_tokens": max_tokens,
