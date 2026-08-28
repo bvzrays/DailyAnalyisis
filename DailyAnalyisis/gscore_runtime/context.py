@@ -49,12 +49,17 @@ def _protect_inline_icons(html: str) -> str:
         style_match = re.search(r'''\sstyle\s*=\s*(["'])(.*?)\1''', without_dimensions, re.IGNORECASE | re.DOTALL)
         if style_match:
             style = style_match.group(2).rstrip()
-            separator = "" if not style or style.endswith(";") else ";"
-            replacement = f'{style_match.group(1)}{style}{separator}width:32px;height:32px{style_match.group(1)}'
+            if not re.search(r"(?:^|;)\s*width\s*:", style, re.IGNORECASE):
+                separator = "" if not style or style.endswith(";") else ";"
+                style = f"{style}{separator}width:32px"
+            if not re.search(r"(?:^|;)\s*height\s*:", style, re.IGNORECASE):
+                separator = "" if not style or style.endswith(";") else ";"
+                style = f"{style}{separator}height:32px"
+            replacement = style
             without_dimensions = (
-                without_dimensions[: style_match.start(1)]
+                without_dimensions[: style_match.start(2)]
                 + replacement
-                + without_dimensions[style_match.end(1) :]
+                + without_dimensions[style_match.end(2) :]
             )
         else:
             without_dimensions = without_dimensions[:-1] + ' style="width:32px;height:32px"'
