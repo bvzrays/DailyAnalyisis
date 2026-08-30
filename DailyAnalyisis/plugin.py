@@ -12,6 +12,7 @@ from datetime import datetime
 from urllib.parse import quote
 from collections.abc import Callable, AsyncGenerator
 
+from .help import get_help
 from .gscore_runtime import (
     File,
     Image,
@@ -1357,33 +1358,7 @@ class GroupDailyAnalysis(PluginBase):
     async def show_help(self, event: PluginMessageEvent):
         """发送插件指令与配置帮助。"""
         event.should_call_llm(True)
-        yield event.plain_result(
-            """📖 DailyAnalyisis 帮助
-
-指令前缀: day
-
-📊 群分析
-day群分析 [天数]        生成群聊分析报告
-day群漫画 [天数]        单独生成每日群漫画
-day概览                 发送运行总览、统计与消耗图片
-
-🎨 报告设置
-day设置格式 [格式]      设置 image、text、html，可逗号组合
-day设置模板 [名称/序号] 设置固定报告模板
-day设置模板 随机        每份报告随机选择一个可用模板
-day查看模板             查看模板列表和预览图
-
-⚙️ 状态与管理
-day分析设置 [动作]      查看或管理当前群分析状态
-day增量状态             查看增量分析状态
-day帮助                 查看本帮助
-day更新日志             查看版本更新内容
-
-配置位置:
-GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis LLM配置 / DailyAnalyisis展示配置
-独立 WebUI → 配置中心
-默认报告模板为 ATRI；LLM 的 API Key、端点和模型请在 DailyAnalyisis LLM配置中设置"""
-        )
+        yield await get_help()
 
     async def show_changelog(self, event: PluginMessageEvent):
         """发送插件版本与更新日志。"""
@@ -1392,6 +1367,10 @@ GsCore WebConsole → DailyAnalyisis基础配置 / DailyAnalyisis LLM配置 / Da
             f"""📝 DailyAnalyisis 更新日志
 
 当前版本: v{PLUGIN_VERSION}
+
+v5.0.17
+• 新增通过 JSON 生成的图片帮助，并接入 core帮助 插件帮助列表
+• 更新插件 Logo，并同步 README 与 WebUI 展示头像
 
 v5.0.16
 • 为报告模板图标补充显式内联尺寸，并增强 SVG 尺寸兜底，兼容不同 GsCore/Takumi 渲染环境

@@ -1,0 +1,113 @@
+{
+  "群聊分析": {
+    "desc": "生成群聊分析报告与每日群漫画",
+    "data": [
+      {
+        "name": "群分析",
+        "desc": "分析指定天数的群聊记录并生成报告",
+        "eg": "群分析 [天数]",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      },
+      {
+        "name": "群漫画",
+        "desc": "根据群聊话题单独生成每日群漫画",
+        "eg": "群漫画 [天数]",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      },
+      {
+        "name": "概览",
+        "desc": "发送运行总览、统计与大模型消耗图片",
+        "eg": "概览",
+        "highlight": 3,
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      }
+    ]
+  },
+  "报告与模板": {
+    "desc": "调整报告格式和展示模板",
+    "data": [
+      {
+        "name": "设置格式",
+        "desc": "设置 image、text、html，可使用逗号组合",
+        "eg": "设置格式 image,text",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      },
+      {
+        "name": "设置模板",
+        "desc": "按名称或序号设置固定报告模板",
+        "eg": "设置模板 ATRI",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      },
+      {
+        "name": "随机模板",
+        "desc": "让每份报告随机选择一个可用模板",
+        "eg": "设置模板 随机",
+        "highlight": 2,
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      },
+      {
+        "name": "查看模板",
+        "desc": "查看模板列表和预览图",
+        "eg": "查看模板",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      }
+    ]
+  },
+  "状态与管理": {
+    "desc": "查看状态并管理当前群的分析功能",
+    "data": [
+      {
+        "name": "分析设置",
+        "desc": "查看或管理当前群分析状态",
+        "eg": "分析设置 status",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      },
+      {
+        "name": "增量状态",
+        "desc": "查看当前群增量分析状态",
+        "eg": "增量状态",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      }
+    ]
+  },
+  "帮助与信息": {
+    "desc": "查看插件帮助和版本更新内容",
+    "data": [
+      {
+        "name": "帮助",
+        "desc": "查看本插件的图片帮助",
+        "eg": "帮助",
+        "highlight": 4,
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      },
+      {
+        "name": "更新日志",
+        "desc": "查看插件版本更新内容",
+        "eg": "更新日志",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": true
+      }
+    ]
+  }
+}

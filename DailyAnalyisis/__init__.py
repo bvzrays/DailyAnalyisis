@@ -6,6 +6,7 @@ from gsuid_core.models import Event
 from gsuid_core.server import on_core_start, on_core_shutdown
 
 from . import webui_static as webui_static
+from .help import register_help_entry
 from .runtime import runtime
 
 Plugins(
@@ -14,6 +15,7 @@ Plugins(
     allow_empty_prefix=False,
     alias=["群日常分析", "群分析总结"],
 )
+register_help_entry()
 
 archive_sv = SV("DailyAnalyisis消息归档", pm=6, area="GROUP", priority=10)
 admin_sv = SV("DailyAnalyisis管理命令", pm=3, area="GROUP", priority=5)
