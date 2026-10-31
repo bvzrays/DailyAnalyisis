@@ -11,7 +11,7 @@ from .runtime import runtime
 
 Plugins(
     name="DailyAnalyisis",
-    prefix=["day"],
+    force_prefix=["day"],
     allow_empty_prefix=False,
     alias=["群日常分析", "群分析总结"],
 )
